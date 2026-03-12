@@ -255,7 +255,7 @@
         .bs-side.debt  .bs-total { color: var(--dm-indigo); }
 
         .bs-group {
-            border: 1px solid #E8E8E8;
+            border: 1.5px solid var(--dm-soft);
             border-radius: 12px;
             padding: 12px 14px 8px;
             margin-bottom: 10px;
@@ -587,11 +587,17 @@ const PIE_COLORS = ['#222222','#FF5252','#FF8C42','#CC4040','#FFB0B0','#FF6B6B',
 let lineChartInstance = null;
 let pieChartInstance = null;
 let pieAllAssets = [];  // 파이차트용 전체 자산 데이터
+let bsData = { listed: [], unlisted: [], debts: [] };  // 대차대조표용
 
 function filterPieChart() {
     const filter = document.getElementById('pieOwnerFilter').value;
     const filtered = filter === 'all' ? pieAllAssets : pieAllAssets.filter(x => x.owner === filter);
     renderPieChart(filtered);
+}
+
+function filterBalanceSheet() {
+    const filter = document.getElementById('bsOwnerFilter').value;
+    renderBalanceSheet(bsData.listed, bsData.unlisted, bsData.debts, filter);
 }
 
 function renderLineChart(monthlyData) {
@@ -756,6 +762,76 @@ function calcNetWorth(classified) {
     return { netWorth: totalListed - totalDebt, totalListed, totalUnlisted, totalAsset: totalListed + totalUnlisted, totalDebt };
 }
 
+// ── 대차대조표 렌더링 ──
+function renderBalanceSheet(listed, unlisted, debts, filter) {
+    const fListed = filter === 'all' ? listed : listed.filter(x => x.owner === filter);
+    const fUnlisted = filter === 'all' ? unlisted : unlisted.filter(x => x.owner === filter);
+    const fDebts = filter === 'all' ? debts : debts.filter(x => x.owner === filter);
+
+    const totalListed = fListed.reduce((s, x) => s + x.amt, 0);
+    const totalUnlisted = fUnlisted.reduce((s, x) => s + x.amt, 0);
+    const totalAsset = totalListed + totalUnlisted;
+    const totalDebt = fDebts.reduce((s, x) => s + x.amt, 0);
+    const netWorth = totalListed - totalDebt;
+
+    function renderOwnerGroups(items, unlistedItems) {
+        const owners = [...new Set(items.map(x => x.owner).filter(Boolean))];
+        if (owners.length === 0 && items.length > 0) owners.push('');
+        let html = '';
+        owners.forEach(ow => {
+            const owItems = items.filter(x => x.owner === ow);
+            const owUnlisted = (unlistedItems || []).filter(x => x.owner === ow);
+            if (owItems.length === 0 && owUnlisted.length === 0) return;
+            // 필터가 특정 소유자면 그룹 박스 없이 바로 표시
+            const showGroup = (filter === 'all');
+            if (showGroup) html += `<div class="bs-group">`;
+            if (showGroup && ow) html += `<div class="bs-group-title">${ow}</div>`;
+            owItems.forEach(x => {
+                html += `<div class="bs-row"><span class="label">${x.nameMemo}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+            });
+            if (owUnlisted.length > 0) {
+                html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--dm-peri);font-size:0.72rem;color:var(--dm-text2);font-weight:600;margin-bottom:4px">비상장 투자</div>`;
+                owUnlisted.forEach(x => {
+                    html += `<div class="bs-row" style="opacity:0.7"><span class="label">${x.nameMemo}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+                });
+            }
+            if (showGroup) html += `</div>`;
+        });
+        return html;
+    }
+
+    const leftRows = renderOwnerGroups(fListed, fUnlisted);
+    const rightRows = renderOwnerGroups(fDebts);
+    const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--dm-text2);margin-left:10px">(+${formatMoney(totalUnlisted)})</span>` : '';
+    const filterLabel = filter === 'all' ? '듀오' : filter;
+
+    const summaryHtml = `
+        <div class="bs-net">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span class="label" style="margin:0">순자산</span>
+                <select id="bsOwnerFilter" onchange="filterBalanceSheet()" style="font-size:0.75rem;padding:2px 6px;border:1px solid #ddd;border-radius:6px;color:var(--dm-text);background:#fff;cursor:pointer">
+                    <option value="all"${filter==='all'?' selected':''}>듀오</option>
+                    <option value="TS"${filter==='TS'?' selected':''}>TS</option>
+                    <option value="NY"${filter==='NY'?' selected':''}>NY</option>
+                </select>
+            </div>
+            <div class="value">${formatMoney(netWorth)}${alphaHtml}</div>
+        </div>
+        <div class="bs-wrap">
+            <div class="bs-side asset">
+                <div class="bs-title">자산</div>
+                ${leftRows}
+                <div class="bs-total"><span>합계</span><span>${formatMoney(totalAsset)}</span></div>
+            </div>
+            <div class="bs-side debt">
+                <div class="bs-title">부채</div>
+                ${rightRows || '<div class="bs-row" style="color:var(--text-light)">없음</div>'}
+                <div class="bs-total"><span>합계</span><span>${formatMoney(totalDebt)}</span></div>
+            </div>
+        </div>`;
+    document.getElementById('assets-summary').innerHTML = summaryHtml;
+}
+
 // ── 자산관리 ──
 async function loadAssets(aligns) {
     try {
@@ -810,53 +886,8 @@ async function loadAssets(aligns) {
         unlisted.sort(ownerSort);
         debts.sort(ownerSort);
 
-        // 소유자별 그룹 렌더링 헬퍼
-        function renderOwnerGroups(items, unlistedItems) {
-            const owners = [...new Set(items.map(x => x.owner).filter(Boolean))];
-            if (owners.length === 0) owners.push('');
-            let html = '';
-            owners.forEach(ow => {
-                const owItems = items.filter(x => x.owner === ow);
-                const owUnlisted = (unlistedItems || []).filter(x => x.owner === ow);
-                if (owItems.length === 0 && owUnlisted.length === 0) return;
-                html += `<div class="bs-group">`;
-                if (ow) html += `<div class="bs-group-title">${ow}</div>`;
-                owItems.forEach(x => {
-                    html += `<div class="bs-row"><span class="label">${x.nameMemo}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
-                });
-                if (owUnlisted.length > 0) {
-                    html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #E8E8E8;font-size:0.72rem;color:var(--dm-text2);font-weight:600;margin-bottom:4px">비상장 투자</div>`;
-                    owUnlisted.forEach(x => {
-                        html += `<div class="bs-row" style="opacity:0.7"><span class="label">${x.nameMemo}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
-                    });
-                }
-                html += `</div>`;
-            });
-            return html;
-        }
-
-        const leftRows = renderOwnerGroups(listed, unlisted);
-        const rightRows = renderOwnerGroups(debts);
-
-        const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--dm-text2);margin-left:10px">(+${formatMoney(totalUnlisted)})</span>` : '';
-        const summaryHtml = `
-            <div class="bs-net">
-                <div class="label">순자산</div>
-                <div class="value">${formatMoney(netWorth)}${alphaHtml}</div>
-            </div>
-            <div class="bs-wrap">
-                <div class="bs-side asset">
-                    <div class="bs-title">자산</div>
-                    ${leftRows}
-                    <div class="bs-total"><span>합계</span><span>${formatMoney(totalAsset)}</span></div>
-                </div>
-                <div class="bs-side debt">
-                    <div class="bs-title">부채</div>
-                    ${rightRows || '<div class="bs-row" style="color:var(--text-light)">없음</div>'}
-                    <div class="bs-total"><span>합계</span><span>${formatMoney(totalDebt)}</span></div>
-                </div>
-            </div>`;
-        document.getElementById('assets-summary').innerHTML = summaryHtml;
+        bsData = { listed, unlisted, debts };
+        renderBalanceSheet(listed, unlisted, debts, 'all');
 
         // 차트 렌더링
         pieAllAssets = [...listed, ...unlisted];
