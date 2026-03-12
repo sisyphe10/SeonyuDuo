@@ -464,8 +464,46 @@ function showConfigBanner() {
     document.getElementById('assets-summary').innerHTML = '';
 }
 
+// ── 셀 값 포맷 (컬럼명 기반 자동 판별) ──
+function formatCell(val, colName) {
+    const cn = (colName || '').trim();
+    if (cn === '날짜') return formatDateStr(val);
+    if (cn === '요일') return formatDayStr(val);
+    if (cn === '금액') return formatMoney(val);
+    if (cn === '완료') {
+        if (val === true || val === 'TRUE') return 'O';
+        if (val === false || val === 'FALSE') return '';
+        return String(val || '');
+    }
+    return String(val ?? '');
+}
+
+// ── 동적 테이블 렌더링 (컬럼 자동 감지) ──
+function renderSheet(cols, rows, aligns) {
+    // 빈 컬럼 제거 (라벨이 비어있는 뒤쪽 컬럼)
+    let colCount = cols.length;
+    while (colCount > 0 && !cols[colCount - 1]) colCount--;
+    const headers = cols.slice(0, colCount);
+
+    const sorted = [...rows].reverse();
+    let html = '<table class="data-table"><thead><tr>';
+    headers.forEach((h, i) => {
+        html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    sorted.forEach(r => {
+        html += '<tr>';
+        headers.forEach((h, i) => {
+            const ws = ['내용','결정사항','메모'].includes(h) ? 'white-space:normal;max-width:250px;' : '';
+            html += `<td style="${ws}text-align:${aligns[i] || 'center'}">${formatCell(r[i], h)}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
 // ── 자산관리 ──
-// 시트 컬럼: 날짜(0) | 요일(1) | 구분(2) | 자산명(3) | 카테고리(4) | 금액(5) | 메모(6)
 async function loadAssets(aligns) {
     try {
         const { cols, rows } = await fetchSheet(SHEET_NAMES.assets);
@@ -474,56 +512,42 @@ async function loadAssets(aligns) {
             return;
         }
 
-        let totalAssets = 0;
-        const catMap = {};
-        rows.forEach(r => {
-            const amt = Number(r[5]) || 0;
-            totalAssets += amt;
-            const cat = r[4] || '기타';
-            catMap[cat] = (catMap[cat] || 0) + amt;
-        });
-
-        const cats = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
-
-        let summaryHtml = `
-            <div class="summary-card">
-                <div class="summary-label">총 자산</div>
-                <div class="summary-value">${formatMoney(totalAssets)}</div>
-            </div>`;
-        cats.forEach(([cat, amt]) => {
-            const pct = totalAssets > 0 ? ((amt / totalAssets) * 100).toFixed(1) : 0;
-            summaryHtml += `
-                <div class="summary-card">
-                    <div class="summary-label">${cat}</div>
-                    <div class="summary-value" style="font-size:1.1rem">${formatMoney(amt)}<br><span style="font-size:0.8rem;color:#8a7e76">${pct}%</span></div>
-                </div>`;
-        });
-        document.getElementById('assets-summary').innerHTML = summaryHtml;
-
-        const headers = ['날짜','요일','구분','자산명','카테고리','금액','메모'];
-        const sorted = [...rows].reverse();
-        let html = '<table class="data-table"><thead><tr>';
-        headers.forEach((h, i) => {
-            html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
-        });
-        html += '</tr></thead><tbody>';
-        sorted.forEach(r => {
-            html += '<tr>';
-            const vals = [formatDateStr(r[0]), formatDayStr(r[1]), r[2]||'', r[3]||'', r[4]||'', formatMoney(r[5]), r[6]||''];
-            vals.forEach((v, i) => {
-                html += `<td style="text-align:${aligns[i] || 'center'}">${v}</td>`;
+        // 요약 카드: 금액/카테고리 컬럼을 이름으로 찾기
+        const amtIdx = cols.indexOf('금액');
+        const catIdx = cols.indexOf('카테고리');
+        if (amtIdx !== -1) {
+            let totalAssets = 0;
+            const catMap = {};
+            rows.forEach(r => {
+                const amt = Number(r[amtIdx]) || 0;
+                totalAssets += amt;
+                const cat = (catIdx !== -1 ? r[catIdx] : '') || '기타';
+                catMap[cat] = (catMap[cat] || 0) + amt;
             });
-            html += '</tr>';
-        });
-        html += '</tbody></table>';
-        document.getElementById('assets-table').innerHTML = html;
+            const cats = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
+            let summaryHtml = `
+                <div class="summary-card">
+                    <div class="summary-label">총 자산</div>
+                    <div class="summary-value">${formatMoney(totalAssets)}</div>
+                </div>`;
+            cats.forEach(([cat, amt]) => {
+                const pct = totalAssets > 0 ? ((amt / totalAssets) * 100).toFixed(1) : 0;
+                summaryHtml += `
+                    <div class="summary-card">
+                        <div class="summary-label">${cat}</div>
+                        <div class="summary-value" style="font-size:1.1rem">${formatMoney(amt)}<br><span style="font-size:0.8rem;color:#8a7e76">${pct}%</span></div>
+                    </div>`;
+            });
+            document.getElementById('assets-summary').innerHTML = summaryHtml;
+        }
+
+        document.getElementById('assets-table').innerHTML = renderSheet(cols, rows, aligns);
     } catch (e) {
         document.getElementById('assets-table').innerHTML = errorState('자산 데이터를 불러올 수 없습니다');
     }
 }
 
 // ── 가족회의 ──
-// 시트 컬럼: 날짜(0) | 요일(1) | 주제(2) | 내용(3) | 담당자(4) | 결정사항(5)
 async function loadMeeting(aligns) {
     try {
         const { cols, rows } = await fetchSheet(SHEET_NAMES.meeting);
@@ -531,25 +555,7 @@ async function loadMeeting(aligns) {
             document.getElementById('meeting-table').innerHTML = emptyState('회의 기록이 없습니다', '가족회의 시트에 데이터를 입력하세요');
             return;
         }
-
-        const headers = ['날짜','요일','주제','내용','담당자','결정사항'];
-        const sorted = [...rows].reverse();
-        let html = '<table class="data-table"><thead><tr>';
-        headers.forEach((h, i) => {
-            html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
-        });
-        html += '</tr></thead><tbody>';
-        sorted.forEach(r => {
-            html += '<tr>';
-            const vals = [formatDateStr(r[0]), formatDayStr(r[1]), r[2]||'', r[3]||'', r[4]||'', r[5]||''];
-            vals.forEach((v, i) => {
-                const ws = (i === 3 || i === 5) ? 'white-space:normal;max-width:250px;' : '';
-                html += `<td style="${ws}text-align:${aligns[i] || 'center'}">${v}</td>`;
-            });
-            html += '</tr>';
-        });
-        html += '</tbody></table>';
-        document.getElementById('meeting-table').innerHTML = html;
+        document.getElementById('meeting-table').innerHTML = renderSheet(cols, rows, aligns);
     } catch (e) {
         document.getElementById('meeting-table').innerHTML = errorState('가족회의 데이터를 불러올 수 없습니다');
     }
