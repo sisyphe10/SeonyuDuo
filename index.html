@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>선유듀오</title>
+    <style>
+        :root {
+            --bg: #faf8f5;
+            --card: #ffffff;
+            --accent: #d4856b;
+            --accent-light: #f0ddd5;
+            --text: #3d3530;
+            --text-light: #8a7e76;
+            --border: #e8e0d8;
+            --green: #5a9e6f;
+            --red: #c75c5c;
+            --blue: #5b7fb5;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── Password Overlay ── */
+        .pw-overlay {
+            position: fixed; inset: 0;
+            background: linear-gradient(135deg, #f5ebe0 0%, #d5c4a1 100%);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999;
+        }
+        .pw-box {
+            background: #fff;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-width: 360px;
+            width: 90%;
+        }
+        .pw-box h2 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: var(--accent);
+        }
+        .pw-box input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .pw-box input:focus { border-color: var(--accent); }
+        .pw-box button {
+            margin-top: 12px;
+            padding: 10px 32px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .pw-box button:hover { background: #c07460; }
+        .pw-error {
+            color: var(--red);
+            font-size: 0.85rem;
+            margin-top: 10px;
+            display: none;
+        }
+        .pw-hidden { display: none; }
+
+        /* ── Header ── */
+        header {
+            background: linear-gradient(135deg, #d4856b 0%, #c07460 100%);
+            padding: 24px;
+            text-align: center;
+            color: #fff;
+        }
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        header .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+
+        /* ── Tab Navigation ── */
+        .tab-nav {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .tab-btn {
+            padding: 14px 24px;
+            border: none;
+            background: none;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: var(--accent); }
+        .tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        /* ── Content ── */
+        .content { padding: 24px; max-width: 1000px; margin: 0 auto; }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ── Tables ── */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        .data-table th {
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-light);
+            border-bottom: 2px solid var(--border);
+            background: #faf8f5;
+            white-space: nowrap;
+        }
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0ece6;
+            white-space: nowrap;
+        }
+        .data-table tbody tr:hover td { background: #faf8f5; }
+        .data-table .num { text-align: right; }
+        .data-table .center { text-align: center; }
+        .positive { color: var(--red); }
+        .negative { color: var(--blue); }
+
+        /* ── Summary Cards ── */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .summary-card {
+            background: var(--card);
+            border-radius: 10px;
+            padding: 18px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .summary-label {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-bottom: 6px;
+        }
+        .summary-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        /* ── Photo Album ── */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .photo-card {
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: #fff;
+        }
+        .photo-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .photo-card .photo-caption {
+            padding: 10px;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        /* ── Anniversary ── */
+        .anniversary-list {
+            list-style: none;
+        }
+        .anniversary-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 0;
+            border-bottom: 1px solid #f0ece6;
+        }
+        .anniversary-item:last-child { border-bottom: none; }
+        .anniversary-date {
+            background: var(--accent-light);
+            color: var(--accent);
+            font-weight: 700;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            min-width: 90px;
+            text-align: center;
+        }
+        .anniversary-info { flex: 1; }
+        .anniversary-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        .anniversary-dday {
+            font-size: 0.82rem;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+        .anniversary-dday.upcoming {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* ── Empty State ── */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-light);
+        }
+        .empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+        .empty-state .msg { font-size: 0.95rem; }
+        .empty-state .hint {
+            font-size: 0.82rem;
+            margin-top: 8px;
+            color: #b0a89e;
+        }
+
+        /* ── Loading ── */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-light);
+        }
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Config Banner ── */
+        .config-banner {
+            background: #fff3e0;
+            border: 1px solid #ffe0b2;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            font-size: 0.85rem;
+            color: #e65100;
+            line-height: 1.6;
+        }
+        .config-banner code {
+            background: #fff;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.82rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-light);
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 600px) {
+            .tab-btn { padding: 12px 14px; font-size: 0.85rem; }
+            .content { padding: 16px; }
+            .summary-grid { grid-template-columns: repeat(2, 1fr); }
+            .photo-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Password Overlay -->
+<div id="pwOverlay" class="pw-overlay">
+    <div class="pw-box">
+        <h2>선유듀오</h2>
+        <p style="color:#8a7e76;margin-bottom:20px;font-size:0.9rem">비밀번호를 입력하세요</p>
+        <input type="password" id="pwInput" placeholder="비밀번호" autofocus
+               onkeydown="if(event.key==='Enter')checkPw()">
+        <button onclick="checkPw()">확인</button>
+        <div id="pwError" class="pw-error">비밀번호가 틀렸습니다.</div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<div id="mainContent" class="pw-hidden">
+
+<header>
+    <h1>선유듀오</h1>
+    <div class="subtitle">우리 가족 대시보드</div>
+</header>
+
+<div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('budget')">가계부</button>
+    <button class="tab-btn" onclick="switchTab('assets')">자산관리</button>
+    <button class="tab-btn" onclick="switchTab('photos')">사진앨범</button>
+    <button class="tab-btn" onclick="switchTab('anniversary')">기념일</button>
+</div>
+
+<div class="content">
+
+    <!-- ====== 가계부 ====== -->
+    <div id="tab-budget" class="tab-content active">
+        <div id="budget-summary" class="summary-grid"></div>
+        <div class="card">
+            <div class="card-title">지출 내역</div>
+            <div id="budget-table"><div class="loading">데이터 로딩 중</div></div>
+        </div>
+    </div>
+
+    <!-- ====== 자산관리 ====== -->
+    <div id="tab-assets" class="tab-content">
+        <div id="assets-summary" class="summary-grid"></div>
+        <div class="card">
+            <div class="card-title">자산 현황</div>
+            <div id="assets-table"><div class="loading">데이터 로딩 중</div></div>
+        </div>
+    </div>
+
+    <!-- ====== 사진앨범 ====== -->
+    <div id="tab-photos" class="tab-content">
+        <div class="card">
+            <div class="card-title">사진앨범</div>
+            <div id="photos-grid"><div class="loading">데이터 로딩 중</div></div>
+        </div>
+    </div>
+
+    <!-- ====== 기념일 ====== -->
+    <div id="tab-anniversary" class="tab-content">
+        <div class="card">
+            <div class="card-title">기념일</div>
+            <div id="anniversary-list"><div class="loading">데이터 로딩 중</div></div>
+        </div>
+    </div>
+
+</div>
+
+<footer>
+    선유듀오 &copy; 2026
+</footer>
+
+</div>
+
+<script>
+// ── Password ──
+const PW_HASH = '7d78e91672fb21bfd70f2c3a5df40ee3d3cf052ae66a133df53822cc8bad44ee';
+
+async function sha256(msg) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function checkPw() {
+    const hash = await sha256(document.getElementById('pwInput').value);
+    if (hash === PW_HASH) {
+        document.getElementById('pwOverlay').style.display = 'none';
+        document.getElementById('mainContent').classList.remove('pw-hidden');
+        sessionStorage.setItem('seonyu_auth', '1');
+        loadAllData();
+    } else {
+        document.getElementById('pwError').style.display = 'block';
+        document.getElementById('pwInput').value = '';
+        document.getElementById('pwInput').focus();
+    }
+}
+
+if (sessionStorage.getItem('seonyu_auth') === '1') {
+    document.getElementById('pwOverlay').style.display = 'none';
+    document.getElementById('mainContent').classList.remove('pw-hidden');
+    window.addEventListener('DOMContentLoaded', loadAllData);
+}
+
+// ── Tab Switching ──
+function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    event.target.classList.add('active');
+}
+
+// ── Google Sheets Config ──
+// 아래 SHEET_ID를 본인 Google Sheet ID로 교체하세요.
+// Google Sheet → 파일 → 공유 → 웹에 게시 → 게시 후 사용
+const SHEET_ID = '';  // 예: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms'
+
+const SHEET_NAMES = {
+    budget: '가계부',
+    assets: '자산',
+    photos: '사진',
+    anniversary: '기념일'
+};
+
+function sheetUrl(sheetName) {
+    return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+}
+
+function parseGviz(text) {
+    // Google Visualization API returns "google.visualization.Query.setResponse({...})"
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s)[1]);
+    const cols = json.table.cols.map(c => c.label);
+    const rows = json.table.rows.map(r =>
+        r.c.map(cell => cell ? (cell.v !== null ? cell.v : (cell.f || '')) : '')
+    );
+    return { cols, rows };
+}
+
+async function fetchSheet(sheetName) {
+    const resp = await fetch(sheetUrl(sheetName));
+    const text = await resp.text();
+    return parseGviz(text);
+}
+
+// ── Data Loading ──
+async function loadAllData() {
+    if (!SHEET_ID) {
+        showConfigBanner();
+        return;
+    }
+    loadBudget();
+    loadAssets();
+    loadPhotos();
+    loadAnniversary();
+}
+
+function showConfigBanner() {
+    const banner = `
+        <div class="config-banner">
+            Google Sheets 연동이 필요합니다:<br>
+            1. Google Sheets에서 시트 4개 생성: <code>가계부</code> <code>자산</code> <code>사진</code> <code>기념일</code><br>
+            2. 파일 &rarr; 공유 &rarr; 웹에 게시 &rarr; 전체 문서 게시<br>
+            3. Sheet URL에서 ID 복사 (docs.google.com/spreadsheets/d/<b>여기</b>/edit)<br>
+            4. index.html의 <code>SHEET_ID</code>에 붙여넣기
+        </div>`;
+
+    ['budget-table', 'assets-table', 'photos-grid', 'anniversary-list'].forEach(id => {
+        document.getElementById(id).innerHTML = banner;
+    });
+    document.getElementById('budget-summary').innerHTML = '';
+    document.getElementById('assets-summary').innerHTML = '';
+}
+
+// ── 가계부 ──
+// 시트 컬럼: 날짜 | 카테고리 | 내용 | 금액 | 메모
+async function loadBudget() {
+    try {
+        const { cols, rows } = await fetchSheet(SHEET_NAMES.budget);
+        if (rows.length === 0) {
+            document.getElementById('budget-table').innerHTML = emptyState('아직 지출 내역이 없습니다', '가계부 시트에 데이터를 입력하세요');
+            return;
+        }
+
+        // Summary
+        let totalExpense = 0;
+        const catMap = {};
+        const monthMap = {};
+        rows.forEach(r => {
+            const amt = Number(r[3]) || 0;
+            totalExpense += amt;
+            const cat = r[1] || '기타';
+            catMap[cat] = (catMap[cat] || 0) + amt;
+            // 이번 달
+            const d = parseDate(r[0]);
+            if (d) {
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                monthMap[key] = (monthMap[key] || 0) + amt;
+            }
+        });
+
+        const now = new Date();
+        const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        const thisMonthTotal = monthMap[thisMonth] || 0;
+        const topCat = Object.entries(catMap).sort((a,b) => b[1]-a[1])[0];
+
+        document.getElementById('budget-summary').innerHTML = `
+            <div class="summary-card">
+                <div class="summary-label">이번 달 지출</div>
+                <div class="summary-value">${formatMoney(thisMonthTotal)}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">전체 지출</div>
+                <div class="summary-value">${formatMoney(totalExpense)}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">최다 카테고리</div>
+                <div class="summary-value" style="font-size:1.1rem">${topCat ? topCat[0] : '-'}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">총 건수</div>
+                <div class="summary-value">${rows.length}</div>
+            </div>`;
+
+        // Table (최신순)
+        const sorted = [...rows].reverse();
+        let html = `<table class="data-table"><thead><tr>
+            <th>날짜</th><th>카테고리</th><th>내용</th><th class="num">금액</th><th>메모</th>
+        </tr></thead><tbody>`;
+        sorted.slice(0, 50).forEach(r => {
+            html += `<tr>
+                <td class="center">${formatDateStr(r[0])}</td>
+                <td>${r[1] || ''}</td>
+                <td>${r[2] || ''}</td>
+                <td class="num">${formatMoney(r[3])}</td>
+                <td>${r[4] || ''}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        if (rows.length > 50) html += `<p style="text-align:center;color:#8a7e76;font-size:0.8rem;margin-top:10px">최근 50건 표시 (전체 ${rows.length}건)</p>`;
+        document.getElementById('budget-table').innerHTML = html;
+    } catch (e) {
+        document.getElementById('budget-table').innerHTML = errorState('가계부 데이터를 불러올 수 없습니다');
+    }
+}
+
+// ── 자산관리 ──
+// 시트 컬럼: 자산명 | 카테고리 | 금액 | 메모
+async function loadAssets() {
+    try {
+        const { cols, rows } = await fetchSheet(SHEET_NAMES.assets);
+        if (rows.length === 0) {
+            document.getElementById('assets-table').innerHTML = emptyState('자산 데이터가 없습니다', '자산 시트에 데이터를 입력하세요');
+            return;
+        }
+
+        let totalAssets = 0;
+        const catMap = {};
+        rows.forEach(r => {
+            const amt = Number(r[2]) || 0;
+            totalAssets += amt;
+            const cat = r[1] || '기타';
+            catMap[cat] = (catMap[cat] || 0) + amt;
+        });
+
+        const cats = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
+
+        let summaryHtml = `
+            <div class="summary-card">
+                <div class="summary-label">총 자산</div>
+                <div class="summary-value">${formatMoney(totalAssets)}</div>
+            </div>`;
+        cats.forEach(([cat, amt]) => {
+            const pct = totalAssets > 0 ? ((amt / totalAssets) * 100).toFixed(1) : 0;
+            summaryHtml += `
+                <div class="summary-card">
+                    <div class="summary-label">${cat}</div>
+                    <div class="summary-value" style="font-size:1.1rem">${formatMoney(amt)}<br><span style="font-size:0.8rem;color:#8a7e76">${pct}%</span></div>
+                </div>`;
+        });
+        document.getElementById('assets-summary').innerHTML = summaryHtml;
+
+        let html = `<table class="data-table"><thead><tr>
+            <th>자산명</th><th>카테고리</th><th class="num">금액</th><th>메모</th>
+        </tr></thead><tbody>`;
+        rows.forEach(r => {
+            html += `<tr>
+                <td>${r[0] || ''}</td>
+                <td>${r[1] || ''}</td>
+                <td class="num">${formatMoney(r[2])}</td>
+                <td>${r[3] || ''}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('assets-table').innerHTML = html;
+    } catch (e) {
+        document.getElementById('assets-table').innerHTML = errorState('자산 데이터를 불러올 수 없습니다');
+    }
+}
+
+// ── 사진앨범 ──
+// 시트 컬럼: 날짜 | 제목 | 이미지URL | 설명
+async function loadPhotos() {
+    try {
+        const { cols, rows } = await fetchSheet(SHEET_NAMES.photos);
+        if (rows.length === 0) {
+            document.getElementById('photos-grid').innerHTML = emptyState('사진이 없습니다', '사진 시트에 이미지 URL을 입력하세요');
+            return;
+        }
+
+        let html = '<div class="photo-grid">';
+        [...rows].reverse().forEach(r => {
+            const imgUrl = r[2] || '';
+            const title = r[1] || '';
+            const date = formatDateStr(r[0]);
+            const desc = r[3] || '';
+            if (imgUrl) {
+                html += `
+                    <div class="photo-card">
+                        <img src="${imgUrl}" alt="${title}" loading="lazy" onerror="this.style.display='none'">
+                        <div class="photo-caption">
+                            <strong>${title}</strong><br>
+                            <span style="color:#b0a89e;font-size:0.8rem">${date} ${desc ? '- ' + desc : ''}</span>
+                        </div>
+                    </div>`;
+            }
+        });
+        html += '</div>';
+        document.getElementById('photos-grid').innerHTML = html;
+    } catch (e) {
+        document.getElementById('photos-grid').innerHTML = errorState('사진 데이터를 불러올 수 없습니다');
+    }
+}
+
+// ── 기념일 ──
+// 시트 컬럼: 날짜(MM-DD) | 이름 | 유형 | 메모
+async function loadAnniversary() {
+    try {
+        const { cols, rows } = await fetchSheet(SHEET_NAMES.anniversary);
+        if (rows.length === 0) {
+            document.getElementById('anniversary-list').innerHTML = emptyState('기념일이 없습니다', '기념일 시트에 데이터를 입력하세요');
+            return;
+        }
+
+        const now = new Date();
+        const todayMMDD = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+        // D-day 계산
+        const items = rows.map(r => {
+            const mmdd = String(r[0] || '').replace(/\//g, '-');
+            const name = r[1] || '';
+            const type = r[2] || '';
+            const memo = r[3] || '';
+
+            let dday = null;
+            if (mmdd.match(/^\d{2}-\d{2}$/)) {
+                const [mm, dd] = mmdd.split('-').map(Number);
+                let target = new Date(now.getFullYear(), mm - 1, dd);
+                if (target < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+                    target = new Date(now.getFullYear() + 1, mm - 1, dd);
+                }
+                dday = Math.ceil((target - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+            }
+
+            return { mmdd, name, type, memo, dday };
+        });
+
+        // D-day 가까운 순 정렬
+        items.sort((a, b) => (a.dday ?? 999) - (b.dday ?? 999));
+
+        let html = '<ul class="anniversary-list">';
+        items.forEach(item => {
+            const ddayStr = item.dday === 0 ? '<span class="upcoming">TODAY!</span>'
+                          : item.dday !== null ? `<span class="${item.dday <= 7 ? 'upcoming' : ''}">D-${item.dday}</span>`
+                          : '';
+            html += `
+                <li class="anniversary-item">
+                    <div class="anniversary-date">${item.mmdd}</div>
+                    <div class="anniversary-info">
+                        <div class="anniversary-name">${item.name} ${item.type ? '<span style="color:#8a7e76;font-size:0.85rem">(' + item.type + ')</span>' : ''}</div>
+                        <div class="anniversary-dday">${ddayStr} ${item.memo ? '&middot; ' + item.memo : ''}</div>
+                    </div>
+                </li>`;
+        });
+        html += '</ul>';
+        document.getElementById('anniversary-list').innerHTML = html;
+    } catch (e) {
+        document.getElementById('anniversary-list').innerHTML = errorState('기념일 데이터를 불러올 수 없습니다');
+    }
+}
+
+// ── Utilities ──
+function formatMoney(val) {
+    const n = Number(val) || 0;
+    if (Math.abs(n) >= 100000000) {
+        return (n / 100000000).toFixed(1) + '억';
+    } else if (Math.abs(n) >= 10000) {
+        return (n / 10000).toFixed(0) + '만원';
+    }
+    return n.toLocaleString() + '원';
+}
+
+function parseDate(val) {
+    if (!val) return null;
+    if (typeof val === 'string' && val.startsWith('Date(')) {
+        const parts = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+        if (parts) return new Date(+parts[1], +parts[2], +parts[3]);
+    }
+    const d = new Date(val);
+    return isNaN(d) ? null : d;
+}
+
+function formatDateStr(val) {
+    const d = parseDate(val);
+    if (!d) return String(val || '');
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function emptyState(msg, hint) {
+    return `<div class="empty-state"><div class="icon">📭</div><div class="msg">${msg}</div><div class="hint">${hint || ''}</div></div>`;
+}
+
+function errorState(msg) {
+    return `<div class="empty-state"><div class="icon">⚠️</div><div class="msg">${msg}</div><div class="hint">Google Sheets 연결 상태를 확인하세요</div></div>`;
+}
+</script>
+
+</body>
+</html>
