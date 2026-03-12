@@ -226,8 +226,8 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
             border: none;
         }
-        .bs-side.asset { border-left: 3px solid var(--dm-indigo); }
-        .bs-side.debt  { border-left: 3px solid var(--dm-coral); }
+        .bs-side.asset { border-left: 3px solid var(--dm-coral); }
+        .bs-side.debt  { border-left: 3px solid var(--dm-indigo); }
         .bs-title {
             font-size: 0.82rem;
             font-weight: 700;
@@ -235,8 +235,8 @@
             padding-bottom: 8px;
             border-bottom: 1px solid var(--dm-divider);
         }
-        .bs-side.asset .bs-title { color: var(--dm-indigo); }
-        .bs-side.debt  .bs-title { color: var(--dm-coral); }
+        .bs-side.asset .bs-title { color: var(--dm-coral); }
+        .bs-side.debt  .bs-title { color: var(--dm-indigo); }
         .bs-row {
             display: flex;
             justify-content: space-between;
@@ -254,8 +254,8 @@
             font-weight: 700;
             font-size: 1rem;
         }
-        .bs-side.asset .bs-total { color: var(--dm-indigo); }
-        .bs-side.debt  .bs-total { color: var(--dm-coral); }
+        .bs-side.asset .bs-total { color: var(--dm-coral); }
+        .bs-side.debt  .bs-total { color: var(--dm-indigo); }
 
         @media (max-width: 600px) {
             .bs-wrap { flex-direction: column; }
@@ -270,9 +270,9 @@
         }
         #tab-assets .card-title { color: var(--dm-text); }
         #tab-assets .data-table th {
-            background: var(--dm-pale);
-            color: var(--dm-indigo);
-            border-bottom-color: var(--dm-light);
+            background: #FFF0EE;
+            color: #CC4040;
+            border-bottom-color: #FFD6D6;
         }
         #tab-assets .data-table td {
             border-bottom-color: var(--dm-divider);
@@ -581,7 +581,7 @@ function renderSheet(cols, rows, aligns) {
 }
 
 // ── Charts ──
-const PIE_COLORS = ['#3D3A6E','#5B7FFF','#8FA8FF','#C0CCFF','#D8DFFF','#E8ECFF','#FF5252','#FFB0B0','#7C6BF0','#A0B4FF'];
+const PIE_COLORS = ['#222222','#FF5252','#FF8C42','#CC4040','#FFB0B0','#FF6B6B','#333333','#E86450','#FFA07A','#D4453A'];
 let lineChartInstance = null;
 let pieChartInstance = null;
 
@@ -599,10 +599,10 @@ function renderLineChart(monthlyData) {
             datasets: [{
                 label: '순자산',
                 data: data,
-                borderColor: '#3D3A6E',
-                backgroundColor: 'rgba(61,58,110,0.08)',
+                borderColor: '#FF5252',
+                backgroundColor: 'rgba(255,82,82,0.08)',
                 borderWidth: 2,
-                pointBackgroundColor: '#3D3A6E',
+                pointBackgroundColor: '#FF5252',
                 pointRadius: 5,
                 tension: 0.3,
                 fill: true,
