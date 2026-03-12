@@ -8,17 +8,17 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <style>
         :root {
-            --bg: #fff2eb;
+            --bg: #F0EDEA;
             --card: #ffffff;
-            --accent: #e8967a;
-            --accent-light: #ffdcdc;
-            --text: #5a4a42;
-            --text-light: #8a7e76;
-            --border: #ffd6ba;
+            --accent: #FF5252;
+            --accent-light: #FFB0B0;
+            --text: #222222;
+            --text-light: #999999;
+            --border: #F0F0F0;
             --green: #5a9e6f;
-            --red: #c75c5c;
-            --blue: #5b7fb5;
-            --peach: #ffe8cd;
+            --red: #FF5252;
+            --blue: #5B7FFF;
+            --peach: #FFF0EE;
             /* domino-style asset palette */
             --dm-bg: #F0EDEA;
             --dm-card: #ffffff;
@@ -46,7 +46,7 @@
         /* ── Password Overlay ── */
         .pw-overlay {
             position: fixed; inset: 0;
-            background: linear-gradient(135deg, #fff2eb 0%, #ffe8cd 100%);
+            background: linear-gradient(135deg, #F5F3F0 0%, #EDEAE6 100%);
             display: flex; align-items: center; justify-content: center;
             z-index: 9999;
         }
@@ -86,7 +86,7 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        .pw-box button:hover { background: #d4856b; }
+        .pw-box button:hover { background: #E84545; }
         .pw-error {
             color: var(--red);
             font-size: 0.85rem;
@@ -97,30 +97,27 @@
 
         /* ── Header ── */
         header {
-            background: linear-gradient(135deg, #ffdcdc 0%, #ffd6ba 100%);
+            background: #fff;
             padding: 24px;
             text-align: center;
             color: var(--text);
             position: relative;
+            border-bottom: 1px solid var(--border);
         }
         header h1 {
             font-size: 1.8rem;
-            font-weight: 700;
+            font-weight: 800;
             letter-spacing: 2px;
-        }
-        header .subtitle {
-            font-size: 0.9rem;
-            opacity: 0.75;
-            margin-top: 4px;
+            color: #222;
         }
         header a {
-            color: var(--text);
+            color: var(--accent);
             text-decoration: none;
             font-size: 0.78rem;
             font-weight: 600;
             transition: opacity 0.2s;
         }
-        header a:hover { opacity: 0.65; }
+        header a:hover { opacity: 0.7; }
 
         /* ── Tab Navigation ── */
         .tab-nav {
@@ -128,7 +125,7 @@
             justify-content: center;
             gap: 0;
             background: #fff;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid #EEEEEE;
             position: sticky;
             top: 0;
             z-index: 100;
@@ -158,18 +155,18 @@
 
         .card {
             background: var(--card);
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 24px;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            border: 1px solid var(--border);
+            border: none;
         }
 
         .card-title {
             font-size: 1.1rem;
             font-weight: 700;
             margin-bottom: 16px;
-            color: var(--accent);
+            color: var(--text);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -188,15 +185,15 @@
             font-weight: 600;
             color: var(--text-light);
             border-bottom: 2px solid var(--border);
-            background: var(--peach);
+            background: #FAFAFA;
             white-space: nowrap;
         }
         .data-table td {
             padding: 10px 12px;
-            border-bottom: 1px solid #ffe8cd;
+            border-bottom: 1px solid var(--border);
             white-space: nowrap;
         }
-        .data-table tbody tr:hover td { background: #fff2eb; }
+        .data-table tbody tr:hover td { background: #FAFAFA; }
         .data-table .num { text-align: right; }
         .data-table .center { text-align: center; }
         .positive { color: var(--red); }
@@ -261,23 +258,12 @@
             .bs-wrap { flex-direction: column; }
         }
 
-        /* ── Asset tab scoped (Domino) ── */
-        #tab-assets .card {
-            background: var(--dm-card);
-            border: none;
-            border-radius: 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        }
-        #tab-assets .card-title { color: var(--dm-text); }
+        /* ── Asset tab table header ── */
         #tab-assets .data-table th {
             background: #FFF0EE;
             color: #CC4040;
             border-bottom-color: #FFD6D6;
         }
-        #tab-assets .data-table td {
-            border-bottom-color: var(--dm-divider);
-        }
-        #tab-assets .data-table tbody tr:hover td { background: #FAFAFA; }
 
         /* ── Empty State ── */
         .empty-state {
@@ -304,7 +290,7 @@
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 2px solid var(--border);
+            border: 2px solid #EEEEEE;
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
@@ -365,7 +351,7 @@
     <h1>선유듀오</h1>
     <div style="position:absolute;top:14px;right:20px;text-align:right">
         <a href="https://docs.google.com/spreadsheets/d/1w6q3UwUER7oINuk50LyMzgF2K0Fbt2wgSVJ34vImo0g/edit" target="_blank">스프레드시트 &#8599;</a>
-        <div id="lastUpdated" style="font-size:0.7rem;color:rgba(90,74,66,0.45);margin-top:4px"></div>
+        <div id="lastUpdated" style="font-size:0.7rem;color:#999;margin-top:4px"></div>
     </div>
 </header>
 
