@@ -591,8 +591,8 @@ function renderLineChart(currentNetWorth) {
                     beginAtZero: false,
                     ticks: {
                         callback: v => {
-                            if (v >= 100000000) return (v/100000000).toFixed(0) + '억';
-                            if (v >= 10000) return (v/10000).toFixed(0) + '만';
+                            if (Math.abs(v) >= 100000000) return (v/100000000).toFixed(1) + '억';
+                            if (Math.abs(v) >= 10000) return (v/10000).toFixed(0) + '만';
                             return v.toLocaleString();
                         },
                         font: { size: 11 },
