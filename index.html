@@ -371,7 +371,14 @@
             </div>
             <div style="flex:1;min-width:280px;background:var(--dm-card);border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                    <span style="font-size:0.82rem;font-weight:700;color:var(--dm-text)">자산 구성</span>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:0.82rem;font-weight:700;color:var(--dm-text)">자산 구성</span>
+                        <select id="pieOwnerFilter" onchange="filterPieChart()" style="font-size:0.75rem;padding:2px 6px;border:1px solid #ddd;border-radius:6px;color:var(--dm-text);background:#fff;cursor:pointer">
+                            <option value="all">듀오</option>
+                            <option value="TS">TS</option>
+                            <option value="NY">NY</option>
+                        </select>
+                    </div>
                     <span id="pieDate" style="font-size:0.75rem;color:var(--dm-text2)"></span>
                 </div>
                 <canvas id="chartPie"></canvas>
@@ -570,6 +577,13 @@ function renderSheet(cols, rows, aligns) {
 const PIE_COLORS = ['#222222','#FF5252','#FF8C42','#CC4040','#FFB0B0','#FF6B6B','#333333','#E86450','#FFA07A','#D4453A'];
 let lineChartInstance = null;
 let pieChartInstance = null;
+let pieAllAssets = [];  // 파이차트용 전체 자산 데이터
+
+function filterPieChart() {
+    const filter = document.getElementById('pieOwnerFilter').value;
+    const filtered = filter === 'all' ? pieAllAssets : pieAllAssets.filter(x => x.owner === filter);
+    renderPieChart(filtered);
+}
 
 function renderLineChart(monthlyData) {
     const ctx = document.getElementById('chartLine');
@@ -824,8 +838,10 @@ async function loadAssets(aligns) {
         document.getElementById('assets-summary').innerHTML = summaryHtml;
 
         // 차트 렌더링
+        pieAllAssets = [...listed, ...unlisted];
         renderLineChart(lineData);
-        renderPieChart([...listed, ...unlisted]);
+        document.getElementById('pieOwnerFilter').value = 'all';
+        renderPieChart(pieAllAssets);
 
         document.getElementById('assets-table').innerHTML = renderSheet(cols, rows, aligns);
     } catch (e) {
