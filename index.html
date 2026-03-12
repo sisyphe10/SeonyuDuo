@@ -224,17 +224,17 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
             border: none;
         }
-        .bs-side.asset { border-left: 3px solid var(--dm-coral); }
-        .bs-side.debt  { border-left: 3px solid var(--dm-blue); }
+        .bs-side.asset { border-left: none; }
+        .bs-side.debt  { border-left: none; }
         .bs-title {
             font-size: 0.82rem;
             font-weight: 700;
             margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--dm-divider);
+            padding: 8px 12px;
+            border-radius: 8px;
         }
-        .bs-side.asset .bs-title { color: #222; }
-        .bs-side.debt  .bs-title { color: #222; }
+        .bs-side.asset .bs-title { background: var(--dm-coral); color: #fff; }
+        .bs-side.debt  .bs-title { background: var(--dm-blue); color: #fff; }
         .bs-row {
             display: flex;
             justify-content: space-between;
@@ -374,6 +374,7 @@
 
     <!-- ====== 자산관리 ====== -->
     <div id="tab-assets" class="tab-content active">
+        <div id="assets-summary"></div>
         <div id="assets-charts" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
             <div style="flex:1;min-width:280px;background:var(--dm-card);border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
                 <div style="font-size:0.82rem;font-weight:700;color:var(--dm-text);margin-bottom:12px">순자산 추이</div>
@@ -394,7 +395,6 @@
                 <canvas id="chartPie"></canvas>
             </div>
         </div>
-        <div id="assets-summary"></div>
         <div class="card">
             <div class="card-title">자산 현황</div>
             <div id="assets-table"><div class="loading">데이터 로딩 중</div></div>
