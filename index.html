@@ -564,9 +564,12 @@ async function loadAssets(aligns) {
                     assets.push({ name, amt });
                 }
             });
+            const unlisted = assets.filter(x => x.name.includes('비상장'));
+            const listed = assets.filter(x => !x.name.includes('비상장'));
             const totalAsset = assets.reduce((s, x) => s + x.amt, 0);
+            const totalUnlisted = unlisted.reduce((s, x) => s + x.amt, 0);
             const totalDebt = debts.reduce((s, x) => s + x.amt, 0);
-            const netWorth = totalAsset - totalDebt;
+            const netWorth = (totalAsset - totalUnlisted) - totalDebt;
 
             let leftRows = '';
             assets.forEach(x => {
@@ -578,10 +581,11 @@ async function loadAssets(aligns) {
                 rightRows += `<div class="bs-row"><span class="label">${x.name}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
             });
 
+            const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--ch1);margin-left:10px">+α ${formatMoney(totalUnlisted)}</span>` : '';
             const summaryHtml = `
                 <div class="bs-net">
                     <div class="label">순자산</div>
-                    <div class="value">${formatMoney(netWorth)}</div>
+                    <div class="value">${formatMoney(netWorth)}${alphaHtml}</div>
                 </div>
                 <div class="bs-wrap">
                     <div class="bs-side asset">
