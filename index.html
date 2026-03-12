@@ -174,6 +174,26 @@
         }
 
         /* ── Tables ── */
+        .memo-tip-text {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #222;
+            color: #fff;
+            font-size: 0.78rem;
+            padding: 8px 12px;
+            border-radius: 8px;
+            white-space: normal;
+            width: max-content;
+            max-width: 220px;
+            z-index: 10;
+            line-height: 1.4;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .memo-tip:hover .memo-tip-text,
+        .memo-tip.show-tip .memo-tip-text { display: block; }
         .data-table {
             width: 100%;
             border-collapse: collapse;
@@ -562,7 +582,7 @@ function formatCell(val, colName) {
         const s = String(val ?? '').trim();
         if (!s) return '';
         const escaped = s.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        return `<span title="${escaped}" onclick="alert('${escaped}')" style="cursor:pointer;font-size:0.95rem">📄</span>`;
+        return `<span class="memo-tip" style="cursor:pointer;font-size:0.95rem;position:relative" onclick="this.classList.toggle('show-tip')">📄<span class="memo-tip-text">${s}</span></span>`;
     }
     if (cn.includes('완료')) {
         const v = String(val ?? '').toUpperCase().trim();
