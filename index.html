@@ -763,7 +763,7 @@ async function loadAssets(aligns) {
         // 기준 월 표시
         const latestY = parseInt(latestMonth.split('-')[0]) % 100;
         const latestM = parseInt(latestMonth.split('-')[1]);
-        document.getElementById('pieDate').textContent = `${latestY}년 ${latestM}월 기준`;
+        document.getElementById('pieDate').textContent = `${latestY}년 ${latestM}월`;
 
         const ownerSort = (a, b) => {
             if (a.owner !== b.owner) return a.owner === 'TS' ? -1 : 1;
