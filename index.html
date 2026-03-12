@@ -564,12 +564,7 @@ async function loadMeeting(aligns) {
 // ── Utilities ──
 function formatMoney(val) {
     const n = Number(val) || 0;
-    if (Math.abs(n) >= 100000000) {
-        return (n / 100000000).toFixed(1) + '억';
-    } else if (Math.abs(n) >= 10000) {
-        return (n / 10000).toFixed(0) + '만원';
-    }
-    return n.toLocaleString() + '원';
+    return n.toLocaleString();
 }
 
 function parseDate(val) {
