@@ -824,7 +824,7 @@ function renderBalanceSheet(listed, unlisted, debts, filter) {
             <div class="bs-side asset">
                 <div class="bs-title" style="display:flex;justify-content:space-between;align-items:center">
                     <span>자산</span>
-                    <select id="bsOwnerFilter" onchange="filterBalanceSheet()" style="font-size:0.72rem;padding:2px 6px;border:1px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;background:transparent;cursor:pointer">
+                    <select id="bsOwnerFilter" onchange="filterBalanceSheet()" style="font-size:0.72rem;padding:2px 6px;border:1px solid #ddd;border-radius:6px;color:#222;background:#fff;cursor:pointer">
                         <option value="all"${filter==='all'?' selected':''} style="color:#222">Duo</option>
                         <option value="TS"${filter==='TS'?' selected':''} style="color:#222">TS</option>
                         <option value="NY"${filter==='NY'?' selected':''} style="color:#222">NY</option>
