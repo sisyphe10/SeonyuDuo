@@ -379,9 +379,11 @@ function switchTab(tab) {
 const SHEET_ID = '1w6q3UwUER7oINuk50LyMzgF2K0Fbt2wgSVJ34vImo0g';
 
 const SHEET_NAMES = {
-    assets: '자산',
+    assets: '자산관리',
     meeting: '가족회의'
 };
+
+const GOOGLE_API_KEY = 'AIzaSyCHPiRby5FVAIKDwneZHy1KGl3SfycjZEw';
 
 function sheetUrl(sheetName) {
     return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
@@ -403,13 +405,43 @@ async function fetchSheet(sheetName) {
     return parseGviz(text);
 }
 
+// ── Alignment Fetching (Sheets API v4) ──
+async function fetchAlignments() {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?` +
+        `ranges=${encodeURIComponent(SHEET_NAMES.assets)}` +
+        `&ranges=${encodeURIComponent(SHEET_NAMES.meeting)}` +
+        `&fields=sheets(properties.title,data.rowData.values.effectiveFormat.horizontalAlignment)` +
+        `&key=${GOOGLE_API_KEY}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return {};
+    const json = await resp.json();
+    const result = {};
+    (json.sheets || []).forEach(sheet => {
+        const title = sheet.properties.title;
+        const rows = (sheet.data && sheet.data[0] && sheet.data[0].rowData) || [];
+        // Use 2nd row (first data row) alignment; fallback to header row
+        const refRow = rows.length > 1 ? rows[1] : rows[0];
+        const aligns = (refRow?.values || []).map(v => {
+            const a = v?.effectiveFormat?.horizontalAlignment;
+            if (a === 'CENTER') return 'center';
+            if (a === 'RIGHT') return 'right';
+            return 'left';
+        });
+        if (title === SHEET_NAMES.assets) result.assets = aligns;
+        else if (title === SHEET_NAMES.meeting) result.meeting = aligns;
+    });
+    return result;
+}
+
 // ── Data Loading ──
 async function loadAllData() {
     if (!SHEET_ID) {
         showConfigBanner();
         return;
     }
-    await Promise.all([loadAssets(), loadMeeting()]);
+    let alignments = {};
+    try { alignments = await fetchAlignments(); } catch(e) {}
+    await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || [])]);
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} KST`;
     document.getElementById('lastUpdated').textContent = 'Updated: ' + ts;
@@ -434,7 +466,7 @@ function showConfigBanner() {
 
 // ── 자산관리 ──
 // 시트 컬럼: 날짜(0) | 요일(1) | 구분(2) | 자산명(3) | 카테고리(4) | 금액(5) | 메모(6)
-async function loadAssets() {
+async function loadAssets(aligns) {
     try {
         const { cols, rows } = await fetchSheet(SHEET_NAMES.assets);
         if (rows.length === 0) {
@@ -468,20 +500,20 @@ async function loadAssets() {
         });
         document.getElementById('assets-summary').innerHTML = summaryHtml;
 
+        const headers = ['날짜','요일','구분','자산명','카테고리','금액','메모'];
         const sorted = [...rows].reverse();
-        let html = `<table class="data-table"><thead><tr>
-            <th>날짜</th><th>요일</th><th>구분</th><th>자산명</th><th>카테고리</th><th class="num">금액</th><th>메모</th>
-        </tr></thead><tbody>`;
+        let html = '<table class="data-table"><thead><tr>';
+        headers.forEach((h, i) => {
+            html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
+        });
+        html += '</tr></thead><tbody>';
         sorted.forEach(r => {
-            html += `<tr>
-                <td class="center">${formatDateStr(r[0])}</td>
-                <td class="center">${r[1] || ''}</td>
-                <td class="center">${r[2] || ''}</td>
-                <td>${r[3] || ''}</td>
-                <td>${r[4] || ''}</td>
-                <td class="num">${formatMoney(r[5])}</td>
-                <td>${r[6] || ''}</td>
-            </tr>`;
+            html += '<tr>';
+            const vals = [formatDateStr(r[0]), r[1]||'', r[2]||'', r[3]||'', r[4]||'', formatMoney(r[5]), r[6]||''];
+            vals.forEach((v, i) => {
+                html += `<td style="text-align:${aligns[i] || 'center'}">${v}</td>`;
+            });
+            html += '</tr>';
         });
         html += '</tbody></table>';
         document.getElementById('assets-table').innerHTML = html;
@@ -492,7 +524,7 @@ async function loadAssets() {
 
 // ── 가족회의 ──
 // 시트 컬럼: 날짜(0) | 요일(1) | 주제(2) | 내용(3) | 담당자(4) | 결정사항(5)
-async function loadMeeting() {
+async function loadMeeting(aligns) {
     try {
         const { cols, rows } = await fetchSheet(SHEET_NAMES.meeting);
         if (rows.length === 0) {
@@ -500,19 +532,21 @@ async function loadMeeting() {
             return;
         }
 
+        const headers = ['날짜','요일','주제','내용','담당자','결정사항'];
         const sorted = [...rows].reverse();
-        let html = `<table class="data-table"><thead><tr>
-            <th>날짜</th><th>요일</th><th>주제</th><th>내용</th><th>담당자</th><th>결정사항</th>
-        </tr></thead><tbody>`;
+        let html = '<table class="data-table"><thead><tr>';
+        headers.forEach((h, i) => {
+            html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
+        });
+        html += '</tr></thead><tbody>';
         sorted.forEach(r => {
-            html += `<tr>
-                <td class="center">${formatDateStr(r[0])}</td>
-                <td class="center">${r[1] || ''}</td>
-                <td><strong>${r[2] || ''}</strong></td>
-                <td style="white-space:normal;max-width:250px">${r[3] || ''}</td>
-                <td class="center">${r[4] || ''}</td>
-                <td style="white-space:normal;max-width:200px">${r[5] || ''}</td>
-            </tr>`;
+            html += '<tr>';
+            const vals = [formatDateStr(r[0]), r[1]||'', r[2]||'', r[3]||'', r[4]||'', r[5]||''];
+            vals.forEach((v, i) => {
+                const ws = (i === 3 || i === 5) ? 'white-space:normal;max-width:250px;' : '';
+                html += `<td style="${ws}text-align:${aligns[i] || 'center'}">${v}</td>`;
+            });
+            html += '</tr>';
         });
         html += '</tbody></table>';
         document.getElementById('meeting-table').innerHTML = html;
