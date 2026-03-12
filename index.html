@@ -376,6 +376,7 @@
     <div id="tab-assets" class="tab-content active">
         <div id="assets-summary"></div>
         <div id="assets-charts" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+
             <div style="flex:1;min-width:280px;background:var(--dm-card);border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
                 <div style="font-size:0.82rem;font-weight:700;color:var(--dm-text);margin-bottom:12px">순자산 추이</div>
                 <canvas id="chartLine"></canvas>
@@ -390,11 +391,11 @@
                             <option value="NY">NY</option>
                         </select>
                     </div>
-                    <span id="pieDate" style="font-size:0.75rem;color:var(--dm-text2)"></span>
                 </div>
                 <canvas id="chartPie"></canvas>
             </div>
         </div>
+        <div id="assets-balance-sheet"></div>
         <div class="card">
             <div class="card-title">자산 현황</div>
             <div id="assets-table"><div class="loading">데이터 로딩 중</div></div>
@@ -543,6 +544,7 @@ function showConfigBanner() {
     });
     document.getElementById('budget-summary').innerHTML = '';
     document.getElementById('assets-summary').innerHTML = '';
+    document.getElementById('assets-balance-sheet').innerHTML = '';
 }
 
 // ── 셀 값 포맷 (컬럼명 기반 자동 판별) ──
@@ -589,6 +591,7 @@ let lineChartInstance = null;
 let pieChartInstance = null;
 let pieAllAssets = [];  // 파이차트용 전체 자산 데이터
 let bsData = { listed: [], unlisted: [], debts: [] };  // 대차대조표용
+let latestDateStr = '';  // 기준 월 문자열
 
 function filterPieChart() {
     const filter = document.getElementById('pieOwnerFilter').value;
@@ -599,6 +602,8 @@ function filterPieChart() {
 function filterBalanceSheet() {
     const filter = document.getElementById('bsOwnerFilter').value;
     renderBalanceSheet(bsData.listed, bsData.unlisted, bsData.debts, filter);
+    const netDateEl = document.getElementById('netDateLabel');
+    if (netDateEl) netDateEl.textContent = latestDateStr;
 }
 
 function renderLineChart(monthlyData) {
@@ -806,21 +811,25 @@ function renderBalanceSheet(listed, unlisted, debts, filter) {
     const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--dm-text2);margin-left:10px">(+${formatMoney(totalUnlisted)})</span>` : '';
     const filterLabel = filter === 'all' ? 'Duo' : filter;
 
-    const summaryHtml = `
-        <div class="bs-net">
+    const netHtml = `
+        <div class="bs-net" style="position:relative">
+            <span id="netDateLabel" style="position:absolute;top:14px;right:18px;font-size:0.72rem;color:var(--dm-text2)"></span>
             <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:8px">
                 <span class="label" style="margin:0">순자산</span>
-                <select id="bsOwnerFilter" onchange="filterBalanceSheet()" style="font-size:0.75rem;padding:2px 6px;border:1px solid #ddd;border-radius:6px;color:var(--dm-text);background:#fff;cursor:pointer">
-                    <option value="all"${filter==='all'?' selected':''}>Duo</option>
-                    <option value="TS"${filter==='TS'?' selected':''}>TS</option>
-                    <option value="NY"${filter==='NY'?' selected':''}>NY</option>
-                </select>
             </div>
             <div class="value">${formatMoney(netWorth)}${alphaHtml}</div>
-        </div>
+        </div>`;
+    const bsHtml = `
         <div class="bs-wrap">
             <div class="bs-side asset">
-                <div class="bs-title">자산</div>
+                <div class="bs-title" style="display:flex;justify-content:space-between;align-items:center">
+                    <span>자산</span>
+                    <select id="bsOwnerFilter" onchange="filterBalanceSheet()" style="font-size:0.72rem;padding:2px 6px;border:1px solid rgba(255,255,255,0.5);border-radius:6px;color:#fff;background:transparent;cursor:pointer">
+                        <option value="all"${filter==='all'?' selected':''} style="color:#222">Duo</option>
+                        <option value="TS"${filter==='TS'?' selected':''} style="color:#222">TS</option>
+                        <option value="NY"${filter==='NY'?' selected':''} style="color:#222">NY</option>
+                    </select>
+                </div>
                 ${leftRows}
                 <div class="bs-total"><span>합계</span><span>${formatMoney(totalAsset)}</span></div>
             </div>
@@ -830,7 +839,8 @@ function renderBalanceSheet(listed, unlisted, debts, filter) {
                 <div class="bs-total"><span>합계</span><span>${formatMoney(totalDebt)}</span></div>
             </div>
         </div>`;
-    document.getElementById('assets-summary').innerHTML = summaryHtml;
+    document.getElementById('assets-summary').innerHTML = netHtml;
+    document.getElementById('assets-balance-sheet').innerHTML = bsHtml;
 }
 
 // ── 자산관리 ──
@@ -877,7 +887,7 @@ async function loadAssets(aligns) {
         // 기준 월 표시
         const latestY = parseInt(latestMonth.split('-')[0]) % 100;
         const latestM = parseInt(latestMonth.split('-')[1]);
-        document.getElementById('pieDate').textContent = `${latestY}년 ${latestM}월`;
+        latestDateStr = `${latestY}년 ${latestM}월`;
 
         const ownerSort = (a, b) => {
             if (a.owner !== b.owner) return a.owner === 'TS' ? -1 : 1;
@@ -889,6 +899,8 @@ async function loadAssets(aligns) {
 
         bsData = { listed, unlisted, debts };
         renderBalanceSheet(listed, unlisted, debts, 'all');
+        const netDateEl = document.getElementById('netDateLabel');
+        if (netDateEl) netDateEl.textContent = latestDateStr;
 
         // 차트 렌더링
         pieAllAssets = [...listed, ...unlisted];
