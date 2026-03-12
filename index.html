@@ -254,6 +254,21 @@
         .bs-side.asset .bs-total { color: var(--dm-coral); }
         .bs-side.debt  .bs-total { color: var(--dm-indigo); }
 
+        .bs-group {
+            border: 1px solid #E8E8E8;
+            border-radius: 12px;
+            padding: 12px 14px 8px;
+            margin-bottom: 10px;
+        }
+        .bs-group:last-of-type { margin-bottom: 0; }
+        .bs-group-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--dm-text2);
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+
         @media (max-width: 600px) {
             .bs-wrap { flex-direction: column; }
         }
@@ -726,9 +741,9 @@ function classifyRows(rowSet, cols) {
         const owner = ownerIdx !== -1 ? (r[ownerIdx] || '') : '';
         const nameMemo = memo ? `${name} - ${memo}` : name;
         const display = owner ? `${owner} | ${nameMemo}` : nameMemo;
-        if (type === '대출') debts.push({ display, amt, owner, name });
-        else if (name.includes('비상장')) unlisted.push({ display, amt, owner, name });
-        else listed.push({ display, amt, owner, name });
+        if (type === '대출') debts.push({ display, nameMemo, amt, owner, name });
+        else if (name.includes('비상장')) unlisted.push({ display, nameMemo, amt, owner, name });
+        else listed.push({ display, nameMemo, amt, owner, name });
     });
     return { listed, unlisted, debts };
 }
@@ -795,21 +810,33 @@ async function loadAssets(aligns) {
         unlisted.sort(ownerSort);
         debts.sort(ownerSort);
 
-        let leftRows = '';
-        listed.forEach(x => {
-            leftRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
-        });
-        if (unlisted.length > 0) {
-            leftRows += `<div class="bs-row" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--dm-divider);font-size:0.78rem;color:var(--dm-text2);font-weight:600"><span>비상장 투자</span></div>`;
-            unlisted.forEach(x => {
-                leftRows += `<div class="bs-row" style="opacity:0.7"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+        // 소유자별 그룹 렌더링 헬퍼
+        function renderOwnerGroups(items, unlistedItems) {
+            const owners = [...new Set(items.map(x => x.owner).filter(Boolean))];
+            if (owners.length === 0) owners.push('');
+            let html = '';
+            owners.forEach(ow => {
+                const owItems = items.filter(x => x.owner === ow);
+                const owUnlisted = (unlistedItems || []).filter(x => x.owner === ow);
+                if (owItems.length === 0 && owUnlisted.length === 0) return;
+                html += `<div class="bs-group">`;
+                if (ow) html += `<div class="bs-group-title">${ow}</div>`;
+                owItems.forEach(x => {
+                    html += `<div class="bs-row"><span class="label">${x.nameMemo}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+                });
+                if (owUnlisted.length > 0) {
+                    html += `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #E8E8E8;font-size:0.72rem;color:var(--dm-text2);font-weight:600;margin-bottom:4px">비상장 투자</div>`;
+                    owUnlisted.forEach(x => {
+                        html += `<div class="bs-row" style="opacity:0.7"><span class="label">${x.nameMemo}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+                    });
+                }
+                html += `</div>`;
             });
+            return html;
         }
 
-        let rightRows = '';
-        debts.forEach(x => {
-            rightRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
-        });
+        const leftRows = renderOwnerGroups(listed, unlisted);
+        const rightRows = renderOwnerGroups(debts);
 
         const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--dm-text2);margin-left:10px">(+${formatMoney(totalUnlisted)})</span>` : '';
         const summaryHtml = `
