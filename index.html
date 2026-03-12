@@ -187,29 +187,56 @@
         .positive { color: var(--red); }
         .negative { color: var(--blue); }
 
-        /* ── Summary Cards ── */
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        /* ── Balance Sheet ── */
+        .bs-wrap {
+            display: flex;
             gap: 16px;
             margin-bottom: 20px;
         }
-        .summary-card {
+        .bs-side {
+            flex: 1;
             background: var(--card);
-            border-radius: 10px;
-            padding: 18px;
+            border-radius: 12px;
+            padding: 20px;
             border: 1px solid var(--border);
-            text-align: center;
         }
-        .summary-label {
-            font-size: 0.8rem;
-            color: var(--text-light);
-            margin-bottom: 6px;
-        }
-        .summary-value {
-            font-size: 1.4rem;
+        .bs-title {
+            font-size: 0.82rem;
             font-weight: 700;
-            color: var(--text);
+            color: var(--text-light);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+        }
+        .bs-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 0.88rem;
+        }
+        .bs-row .label { color: var(--text); }
+        .bs-row .amt { font-weight: 600; color: var(--text); }
+        .bs-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0 0;
+            margin-top: 8px;
+            border-top: 2px solid var(--border);
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        .bs-net {
+            text-align: center;
+            background: var(--accent-light);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .bs-net .label { font-size: 0.82rem; color: var(--text-light); margin-bottom: 4px; }
+        .bs-net .value { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+
+        @media (max-width: 600px) {
+            .bs-wrap { flex-direction: column; }
         }
 
         /* ── Empty State ── */
@@ -274,8 +301,6 @@
         @media (max-width: 600px) {
             .tab-btn { padding: 12px 14px; font-size: 0.85rem; }
             .content { padding: 16px; }
-            .summary-grid { grid-template-columns: repeat(2, 1fr); }
-            .photo-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
@@ -313,7 +338,7 @@
 
     <!-- ====== 자산관리 ====== -->
     <div id="tab-assets" class="tab-content active">
-        <div id="assets-summary" class="summary-grid"></div>
+        <div id="assets-summary"></div>
         <div class="card">
             <div class="card-title">자산 현황</div>
             <div id="assets-table"><div class="loading">데이터 로딩 중</div></div>
@@ -512,32 +537,54 @@ async function loadAssets(aligns) {
             return;
         }
 
-        // 요약 카드: 금액/카테고리 컬럼을 이름으로 찾기
+        // 대차대조표: 구분 컬럼 기준으로 자산/부채 분리
         const amtIdx = cols.indexOf('금액');
-        const catIdx = cols.indexOf('카테고리');
+        const typeIdx = cols.indexOf('구분');
+        const nameIdx = cols.indexOf('자산명');
         if (amtIdx !== -1) {
-            let totalAssets = 0;
-            const catMap = {};
+            const assets = [];  // 자산 (구분 !== '대출')
+            const debts = [];   // 부채 (구분 === '대출')
             rows.forEach(r => {
                 const amt = Number(r[amtIdx]) || 0;
-                totalAssets += amt;
-                const cat = (catIdx !== -1 ? r[catIdx] : '') || '기타';
-                catMap[cat] = (catMap[cat] || 0) + amt;
+                const type = typeIdx !== -1 ? (r[typeIdx] || '') : '';
+                const name = nameIdx !== -1 ? (r[nameIdx] || '') : '';
+                if (type === '대출') {
+                    debts.push({ name, amt });
+                } else {
+                    assets.push({ name, amt });
+                }
             });
-            const cats = Object.entries(catMap).sort((a,b) => b[1]-a[1]);
-            let summaryHtml = `
-                <div class="summary-card">
-                    <div class="summary-label">총 자산</div>
-                    <div class="summary-value">${formatMoney(totalAssets)}</div>
+            const totalAsset = assets.reduce((s, x) => s + x.amt, 0);
+            const totalDebt = debts.reduce((s, x) => s + x.amt, 0);
+            const netWorth = totalAsset - totalDebt;
+
+            let leftRows = '';
+            assets.forEach(x => {
+                leftRows += `<div class="bs-row"><span class="label">${x.name}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+            });
+
+            let rightRows = '';
+            debts.forEach(x => {
+                rightRows += `<div class="bs-row"><span class="label">${x.name}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+            });
+
+            const summaryHtml = `
+                <div class="bs-net">
+                    <div class="label">순자산</div>
+                    <div class="value">${formatMoney(netWorth)}</div>
+                </div>
+                <div class="bs-wrap">
+                    <div class="bs-side">
+                        <div class="bs-title">자산</div>
+                        ${leftRows}
+                        <div class="bs-total"><span>합계</span><span>${formatMoney(totalAsset)}</span></div>
+                    </div>
+                    <div class="bs-side">
+                        <div class="bs-title">부채</div>
+                        ${rightRows || '<div class="bs-row" style="color:var(--text-light)">없음</div>'}
+                        <div class="bs-total"><span>합계</span><span>${formatMoney(totalDebt)}</span></div>
+                    </div>
                 </div>`;
-            cats.forEach(([cat, amt]) => {
-                const pct = totalAssets > 0 ? ((amt / totalAssets) * 100).toFixed(1) : 0;
-                summaryHtml += `
-                    <div class="summary-card">
-                        <div class="summary-label">${cat}</div>
-                        <div class="summary-value" style="font-size:1.1rem">${formatMoney(amt)}<br><span style="font-size:0.8rem;color:#8a7e76">${pct}%</span></div>
-                    </div>`;
-            });
             document.getElementById('assets-summary').innerHTML = summaryHtml;
         }
 
