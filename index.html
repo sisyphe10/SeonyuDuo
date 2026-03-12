@@ -558,6 +558,11 @@ function formatCell(val, colName) {
     if (cn === '날짜') return formatDateStr(val);
     if (cn === '요일') return formatDayStr(val);
     if (cn === '금액') return formatMoney(val);
+    if (cn === '결정사항') {
+        const s = String(val ?? '').trim();
+        if (!s) return '';
+        return `<span title="${s.replace(/"/g, '&quot;')}" style="cursor:pointer;font-size:1.1rem">📋</span>`;
+    }
     if (cn.includes('완료')) {
         const v = String(val ?? '').toUpperCase().trim();
         const checked = (val === true || v === 'TRUE');
