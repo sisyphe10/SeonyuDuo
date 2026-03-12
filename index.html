@@ -509,7 +509,7 @@ async function loadAssets(aligns) {
         html += '</tr></thead><tbody>';
         sorted.forEach(r => {
             html += '<tr>';
-            const vals = [formatDateStr(r[0]), r[1]||'', r[2]||'', r[3]||'', r[4]||'', formatMoney(r[5]), r[6]||''];
+            const vals = [formatDateStr(r[0]), formatDayStr(r[1]), r[2]||'', r[3]||'', r[4]||'', formatMoney(r[5]), r[6]||''];
             vals.forEach((v, i) => {
                 html += `<td style="text-align:${aligns[i] || 'center'}">${v}</td>`;
             });
@@ -541,7 +541,7 @@ async function loadMeeting(aligns) {
         html += '</tr></thead><tbody>';
         sorted.forEach(r => {
             html += '<tr>';
-            const vals = [formatDateStr(r[0]), r[1]||'', r[2]||'', r[3]||'', r[4]||'', r[5]||''];
+            const vals = [formatDateStr(r[0]), formatDayStr(r[1]), r[2]||'', r[3]||'', r[4]||'', r[5]||''];
             vals.forEach((v, i) => {
                 const ws = (i === 3 || i === 5) ? 'white-space:normal;max-width:250px;' : '';
                 html += `<td style="${ws}text-align:${aligns[i] || 'center'}">${v}</td>`;
@@ -580,6 +580,14 @@ function formatDateStr(val) {
     const d = parseDate(val);
     if (!d) return String(val || '');
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function formatDayStr(val) {
+    const days = ['일','월','화','수','목','금','토'];
+    if (typeof val === 'string' && days.includes(val)) return val;
+    const d = parseDate(val);
+    if (d) return days[d.getDay()];
+    return String(val || '');
 }
 
 function emptyState(msg, hint) {
