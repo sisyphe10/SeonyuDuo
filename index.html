@@ -506,9 +506,8 @@ function formatCell(val, colName) {
     if (cn === '요일') return formatDayStr(val);
     if (cn === '금액') return formatMoney(val);
     if (cn === '완료') {
-        if (val === true || val === 'TRUE') return 'O';
-        if (val === false || val === 'FALSE') return '';
-        return String(val || '');
+        const checked = (val === true || val === 'TRUE');
+        return `<input type="checkbox"${checked ? ' checked' : ''} disabled style="pointer-events:none;width:16px;height:16px;accent-color:var(--ch3)">`;
     }
     return String(val ?? '');
 }
