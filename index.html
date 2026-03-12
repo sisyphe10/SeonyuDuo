@@ -19,11 +19,19 @@
             --red: #c75c5c;
             --blue: #5b7fb5;
             --peach: #ffe8cd;
-            /* chart palette */
-            --ch1: #d3dad9;
-            --ch2: #715a5a;
-            --ch3: #44444e;
-            --ch4: #37353e;
+            /* domino-style asset palette */
+            --dm-bg: #F0EDEA;
+            --dm-card: #ffffff;
+            --dm-text: #222222;
+            --dm-text2: #999999;
+            --dm-divider: #F0F0F0;
+            --dm-indigo: #3D3A6E;
+            --dm-blue: #5B7FFF;
+            --dm-soft: #8FA8FF;
+            --dm-peri: #C0CCFF;
+            --dm-light: #D8DFFF;
+            --dm-pale: #E8ECFF;
+            --dm-coral: #FF5252;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -194,62 +202,82 @@
         .positive { color: var(--red); }
         .negative { color: var(--blue); }
 
-        /* ── Balance Sheet ── */
+        /* ── Balance Sheet (Domino style) ── */
         .bs-net {
             text-align: center;
-            background: var(--ch4);
-            border-radius: 12px;
-            padding: 18px;
+            background: var(--dm-card);
+            border-radius: 16px;
+            padding: 22px;
             margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
-        .bs-net .label { font-size: 0.82rem; color: var(--ch1); margin-bottom: 4px; }
-        .bs-net .value { font-size: 1.5rem; font-weight: 700; color: #fff; }
+        .bs-net .label { font-size: 0.78rem; color: var(--dm-text2); margin-bottom: 6px; }
+        .bs-net .value { font-size: 1.6rem; font-weight: 800; color: var(--dm-text); }
         .bs-wrap {
             display: flex;
-            gap: 16px;
+            gap: 12px;
             margin-bottom: 20px;
         }
         .bs-side {
             flex: 1;
-            background: #fff;
-            border-radius: 12px;
+            background: var(--dm-card);
+            border-radius: 16px;
             padding: 20px;
-            border: 1px solid var(--ch1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: none;
         }
-        .bs-side.asset { border-top: 3px solid var(--ch3); }
-        .bs-side.debt  { border-top: 3px solid var(--ch2); }
+        .bs-side.asset { border-left: 3px solid var(--dm-indigo); }
+        .bs-side.debt  { border-left: 3px solid var(--dm-coral); }
         .bs-title {
             font-size: 0.82rem;
             font-weight: 700;
             margin-bottom: 12px;
             padding-bottom: 8px;
-            border-bottom: 1px solid var(--ch1);
+            border-bottom: 1px solid var(--dm-divider);
         }
-        .bs-side.asset .bs-title { color: var(--ch3); }
-        .bs-side.debt  .bs-title { color: var(--ch2); }
+        .bs-side.asset .bs-title { color: var(--dm-indigo); }
+        .bs-side.debt  .bs-title { color: var(--dm-coral); }
         .bs-row {
             display: flex;
             justify-content: space-between;
             padding: 6px 0;
             font-size: 0.88rem;
         }
-        .bs-row .label { color: var(--ch4); }
-        .bs-row .amt { font-weight: 600; color: #000; }
+        .bs-row .label { color: var(--dm-text); }
+        .bs-row .amt { font-weight: 600; color: var(--dm-text); }
         .bs-total {
             display: flex;
             justify-content: space-between;
             padding: 10px 0 0;
             margin-top: 8px;
-            border-top: 2px solid var(--ch1);
+            border-top: 1px solid var(--dm-divider);
             font-weight: 700;
             font-size: 1rem;
         }
-        .bs-side.asset .bs-total { color: var(--ch3); }
-        .bs-side.debt  .bs-total { color: var(--ch2); }
+        .bs-side.asset .bs-total { color: var(--dm-indigo); }
+        .bs-side.debt  .bs-total { color: var(--dm-coral); }
 
         @media (max-width: 600px) {
             .bs-wrap { flex-direction: column; }
         }
+
+        /* ── Asset tab scoped (Domino) ── */
+        #tab-assets .card {
+            background: var(--dm-card);
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        #tab-assets .card-title { color: var(--dm-text); }
+        #tab-assets .data-table th {
+            background: var(--dm-pale);
+            color: var(--dm-indigo);
+            border-bottom-color: var(--dm-light);
+        }
+        #tab-assets .data-table td {
+            border-bottom-color: var(--dm-divider);
+        }
+        #tab-assets .data-table tbody tr:hover td { background: #FAFAFA; }
 
         /* ── Empty State ── */
         .empty-state {
@@ -350,15 +378,15 @@
 
     <!-- ====== 자산관리 ====== -->
     <div id="tab-assets" class="tab-content active">
-        <div id="assets-charts" style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
-            <div style="flex:1;min-width:280px;background:#fff;border-radius:12px;padding:20px;border:1px solid var(--ch1)">
-                <div style="font-size:0.82rem;font-weight:700;color:var(--ch3);margin-bottom:12px">순자산 추이</div>
+        <div id="assets-charts" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:280px;background:var(--dm-card);border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+                <div style="font-size:0.82rem;font-weight:700;color:var(--dm-text);margin-bottom:12px">순자산 추이</div>
                 <canvas id="chartLine"></canvas>
             </div>
-            <div style="flex:1;min-width:280px;background:#fff;border-radius:12px;padding:20px;border:1px solid var(--ch1)">
+            <div style="flex:1;min-width:280px;background:var(--dm-card);border-radius:16px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-                    <span style="font-size:0.82rem;font-weight:700;color:var(--ch3)">자산 구성</span>
-                    <span id="pieDate" style="font-size:0.75rem;color:var(--ch2)"></span>
+                    <span style="font-size:0.82rem;font-weight:700;color:var(--dm-text)">자산 구성</span>
+                    <span id="pieDate" style="font-size:0.75rem;color:var(--dm-text2)"></span>
                 </div>
                 <canvas id="chartPie"></canvas>
             </div>
@@ -553,7 +581,7 @@ function renderSheet(cols, rows, aligns) {
 }
 
 // ── Charts ──
-const PIE_COLORS = ['#37353e','#44444e','#715a5a','#d3dad9','#5a7a8a','#8a6e5e','#4a6a5a','#9a8a7a','#6a5a7a','#7a8a6a'];
+const PIE_COLORS = ['#3D3A6E','#5B7FFF','#8FA8FF','#C0CCFF','#D8DFFF','#E8ECFF','#FF5252','#FFB0B0','#7C6BF0','#A0B4FF'];
 let lineChartInstance = null;
 let pieChartInstance = null;
 
@@ -571,10 +599,10 @@ function renderLineChart(monthlyData) {
             datasets: [{
                 label: '순자산',
                 data: data,
-                borderColor: '#37353e',
-                backgroundColor: 'rgba(55,53,62,0.1)',
+                borderColor: '#3D3A6E',
+                backgroundColor: 'rgba(61,58,110,0.08)',
                 borderWidth: 2,
-                pointBackgroundColor: '#37353e',
+                pointBackgroundColor: '#3D3A6E',
                 pointRadius: 5,
                 tension: 0.3,
                 fill: true,
@@ -602,12 +630,12 @@ function renderLineChart(monthlyData) {
                             return v.toLocaleString();
                         },
                         font: { size: 11 },
-                        color: '#715a5a'
+                        color: '#999'
                     },
-                    grid: { color: 'rgba(211,218,217,0.5)' }
+                    grid: { color: '#F0F0F0' }
                 },
                 x: {
-                    ticks: { font: { size: 11 }, color: '#715a5a' },
+                    ticks: { font: { size: 11 }, color: '#999' },
                     grid: { display: false }
                 }
             }
@@ -654,7 +682,7 @@ function renderPieChart(allAssets) {
                     position: 'bottom',
                     labels: {
                         font: { size: 11 },
-                        color: '#37353e',
+                        color: '#222',
                         padding: 12,
                         usePointStyle: true,
                         pointStyle: 'circle'
@@ -778,7 +806,7 @@ async function loadAssets(aligns) {
             leftRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
         });
         if (unlisted.length > 0) {
-            leftRows += `<div class="bs-row" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--ch1);font-size:0.78rem;color:var(--ch2);font-weight:600"><span>비상장 투자</span></div>`;
+            leftRows += `<div class="bs-row" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--dm-divider);font-size:0.78rem;color:var(--dm-text2);font-weight:600"><span>비상장 투자</span></div>`;
             unlisted.forEach(x => {
                 leftRows += `<div class="bs-row" style="opacity:0.7"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
             });
@@ -789,7 +817,7 @@ async function loadAssets(aligns) {
             rightRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
         });
 
-        const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--ch1);margin-left:10px">(+${formatMoney(totalUnlisted)})</span>` : '';
+        const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--dm-text2);margin-left:10px">(+${formatMoney(totalUnlisted)})</span>` : '';
         const summaryHtml = `
             <div class="bs-net">
                 <div class="label">순자산</div>
