@@ -356,7 +356,10 @@
                 <canvas id="chartLine"></canvas>
             </div>
             <div style="flex:1;min-width:280px;background:#fff;border-radius:12px;padding:20px;border:1px solid var(--ch1)">
-                <div style="font-size:0.82rem;font-weight:700;color:var(--ch3);margin-bottom:12px">자산 구성</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                    <span style="font-size:0.82rem;font-weight:700;color:var(--ch3)">자산 구성</span>
+                    <span id="pieDate" style="font-size:0.75rem;color:var(--ch2)"></span>
+                </div>
                 <canvas id="chartPie"></canvas>
             </div>
         </div>
@@ -554,12 +557,12 @@ const PIE_COLORS = ['#37353e','#44444e','#715a5a','#d3dad9','#5a7a8a','#8a6e5e',
 let lineChartInstance = null;
 let pieChartInstance = null;
 
-function renderLineChart(currentNetWorth) {
+function renderLineChart(monthlyData) {
     const ctx = document.getElementById('chartLine');
     if (!ctx) return;
     if (lineChartInstance) lineChartInstance.destroy();
     const months = ['2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
-    const data = [currentNetWorth, null, null, null, null, null, null, null, null, null, null];
+    const data = monthlyData;
     lineChartInstance = new Chart(ctx, {
         type: 'line',
         plugins: [ChartDataLabels],
@@ -685,6 +688,37 @@ function renderPieChart(allAssets) {
     });
 }
 
+// ── 행을 자산/비상장/부채로 분류하는 헬퍼 ──
+function classifyRows(rowSet, cols) {
+    const amtIdx = cols.indexOf('금액');
+    const typeIdx = cols.indexOf('구분');
+    const nameIdx = cols.indexOf('자산명');
+    const memoIdx = cols.indexOf('메모');
+    const ownerIdx = cols.indexOf('담당자');
+    const listed = [], unlisted = [], debts = [];
+    rowSet.forEach(r => {
+        const amt = Number(r[amtIdx]) || 0;
+        const type = typeIdx !== -1 ? (r[typeIdx] || '') : '';
+        const name = nameIdx !== -1 ? (r[nameIdx] || '') : '';
+        const memo = memoIdx !== -1 ? (r[memoIdx] || '') : '';
+        const owner = ownerIdx !== -1 ? (r[ownerIdx] || '') : '';
+        const nameMemo = memo ? `${name} - ${memo}` : name;
+        const display = owner ? `${owner} | ${nameMemo}` : nameMemo;
+        if (type === '대출') debts.push({ display, amt, owner, name });
+        else if (name.includes('비상장')) unlisted.push({ display, amt, owner, name });
+        else listed.push({ display, amt, owner, name });
+    });
+    return { listed, unlisted, debts };
+}
+
+function calcNetWorth(classified) {
+    const { listed, unlisted, debts } = classified;
+    const totalListed = listed.reduce((s, x) => s + x.amt, 0);
+    const totalUnlisted = unlisted.reduce((s, x) => s + x.amt, 0);
+    const totalDebt = debts.reduce((s, x) => s + x.amt, 0);
+    return { netWorth: totalListed - totalDebt, totalListed, totalUnlisted, totalAsset: totalListed + totalUnlisted, totalDebt };
+}
+
 // ── 자산관리 ──
 async function loadAssets(aligns) {
     try {
@@ -694,86 +728,90 @@ async function loadAssets(aligns) {
             return;
         }
 
-        // 대차대조표: 구분 컬럼 기준으로 자산/부채 분리
         const amtIdx = cols.indexOf('금액');
-        const typeIdx = cols.indexOf('구분');
-        const nameIdx = cols.indexOf('자산명');
-        if (amtIdx !== -1) {
-            const memoIdx = cols.indexOf('메모');
-            const ownerIdx = cols.indexOf('담당자');
-            const listed = [];    // 일반 자산
-            const unlisted = [];  // 비상장
-            const debts = [];     // 부채 (대출)
-            rows.forEach(r => {
-                const amt = Number(r[amtIdx]) || 0;
-                const type = typeIdx !== -1 ? (r[typeIdx] || '') : '';
-                const name = nameIdx !== -1 ? (r[nameIdx] || '') : '';
-                const memo = memoIdx !== -1 ? (r[memoIdx] || '') : '';
-                const owner = ownerIdx !== -1 ? (r[ownerIdx] || '') : '';
-                const nameMemo = memo ? `${name} - ${memo}` : name;
-                const display = owner ? `${owner} | ${nameMemo}` : nameMemo;
-                if (type === '대출') {
-                    debts.push({ display, amt, owner, name });
-                } else if (name.includes('비상장')) {
-                    unlisted.push({ display, amt, owner, name });
-                } else {
-                    listed.push({ display, amt, owner, name });
-                }
-            });
-            const totalListed = listed.reduce((s, x) => s + x.amt, 0);
-            const totalUnlisted = unlisted.reduce((s, x) => s + x.amt, 0);
-            const totalAsset = totalListed + totalUnlisted;
-            const totalDebt = debts.reduce((s, x) => s + x.amt, 0);
-            const netWorth = totalListed - totalDebt;
+        if (amtIdx === -1) { document.getElementById('assets-table').innerHTML = renderSheet(cols, rows, aligns); return; }
 
-            const ownerSort = (a, b) => {
-                if (a.owner !== b.owner) return a.owner === 'TS' ? -1 : 1;
-                return b.amt - a.amt;
-            };
-            listed.sort(ownerSort);
-            unlisted.sort(ownerSort);
-            debts.sort(ownerSort);
+        // 월별 그룹핑
+        const dateIdx = cols.indexOf('날짜');
+        const monthMap = {};  // 'YYYY-MM' → [rows]
+        rows.forEach(r => {
+            const d = parseDate(r[dateIdx]);
+            const key = d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : 'unknown';
+            if (!monthMap[key]) monthMap[key] = [];
+            monthMap[key].push(r);
+        });
+        const monthKeys = Object.keys(monthMap).filter(k => k !== 'unknown').sort();
+        const latestMonth = monthKeys[monthKeys.length - 1];
+        const latestRows = monthMap[latestMonth] || rows;
 
-            let leftRows = '';
-            listed.forEach(x => {
-                leftRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
-            });
-            if (unlisted.length > 0) {
-                leftRows += `<div class="bs-row" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--ch1);font-size:0.78rem;color:var(--ch2);font-weight:600"><span>비상장 투자</span></div>`;
-                unlisted.forEach(x => {
-                    leftRows += `<div class="bs-row" style="opacity:0.7"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
-                });
+        // 최신 월 기준 데이터로 대차대조표/파이차트
+        const latest = classifyRows(latestRows, cols);
+        const { netWorth, totalListed, totalUnlisted, totalAsset, totalDebt } = calcNetWorth(latest);
+        const { listed, unlisted, debts } = latest;
+
+        // 순자산 추이 (월별)
+        const lineData = new Array(11).fill(null);  // 2월~12월
+        monthKeys.forEach(key => {
+            const m = parseInt(key.split('-')[1]);
+            if (m >= 2 && m <= 12) {
+                const c = classifyRows(monthMap[key], cols);
+                const nw = calcNetWorth(c);
+                lineData[m - 2] = nw.netWorth;
             }
+        });
 
-            let rightRows = '';
-            debts.forEach(x => {
-                rightRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+        // 기준 월 표시
+        const latestY = parseInt(latestMonth.split('-')[0]) % 100;
+        const latestM = parseInt(latestMonth.split('-')[1]);
+        document.getElementById('pieDate').textContent = `${latestY}년 ${latestM}월 기준`;
+
+        const ownerSort = (a, b) => {
+            if (a.owner !== b.owner) return a.owner === 'TS' ? -1 : 1;
+            return b.amt - a.amt;
+        };
+        listed.sort(ownerSort);
+        unlisted.sort(ownerSort);
+        debts.sort(ownerSort);
+
+        let leftRows = '';
+        listed.forEach(x => {
+            leftRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+        });
+        if (unlisted.length > 0) {
+            leftRows += `<div class="bs-row" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--ch1);font-size:0.78rem;color:var(--ch2);font-weight:600"><span>비상장 투자</span></div>`;
+            unlisted.forEach(x => {
+                leftRows += `<div class="bs-row" style="opacity:0.7"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
             });
-
-            const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--ch1);margin-left:10px">(+${formatMoney(totalUnlisted)})</span>` : '';
-            const summaryHtml = `
-                <div class="bs-net">
-                    <div class="label">순자산</div>
-                    <div class="value">${formatMoney(netWorth)}${alphaHtml}</div>
-                </div>
-                <div class="bs-wrap">
-                    <div class="bs-side asset">
-                        <div class="bs-title">자산</div>
-                        ${leftRows}
-                        <div class="bs-total"><span>합계</span><span>${formatMoney(totalAsset)}</span></div>
-                    </div>
-                    <div class="bs-side debt">
-                        <div class="bs-title">부채</div>
-                        ${rightRows || '<div class="bs-row" style="color:var(--text-light)">없음</div>'}
-                        <div class="bs-total"><span>합계</span><span>${formatMoney(totalDebt)}</span></div>
-                    </div>
-                </div>`;
-            document.getElementById('assets-summary').innerHTML = summaryHtml;
-
-            // 차트 렌더링
-            renderLineChart(netWorth);
-            renderPieChart([...listed, ...unlisted]);
         }
+
+        let rightRows = '';
+        debts.forEach(x => {
+            rightRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
+        });
+
+        const alphaHtml = totalUnlisted > 0 ? `<span style="font-size:0.85rem;color:var(--ch1);margin-left:10px">(+${formatMoney(totalUnlisted)})</span>` : '';
+        const summaryHtml = `
+            <div class="bs-net">
+                <div class="label">순자산</div>
+                <div class="value">${formatMoney(netWorth)}${alphaHtml}</div>
+            </div>
+            <div class="bs-wrap">
+                <div class="bs-side asset">
+                    <div class="bs-title">자산</div>
+                    ${leftRows}
+                    <div class="bs-total"><span>합계</span><span>${formatMoney(totalAsset)}</span></div>
+                </div>
+                <div class="bs-side debt">
+                    <div class="bs-title">부채</div>
+                    ${rightRows || '<div class="bs-row" style="color:var(--text-light)">없음</div>'}
+                    <div class="bs-total"><span>합계</span><span>${formatMoney(totalDebt)}</span></div>
+                </div>
+            </div>`;
+        document.getElementById('assets-summary').innerHTML = summaryHtml;
+
+        // 차트 렌더링
+        renderLineChart(lineData);
+        renderPieChart([...listed, ...unlisted]);
 
         document.getElementById('assets-table').innerHTML = renderSheet(cols, rows, aligns);
     } catch (e) {
