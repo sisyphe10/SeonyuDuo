@@ -18,10 +18,10 @@
             --blue: #5b7fb5;
             --peach: #ffe8cd;
             /* chart palette */
-            --ch1: #f9f7f7;
-            --ch2: #dbe2ef;
-            --ch3: #3f72af;
-            --ch4: #112d4e;
+            --ch1: #d3dad9;
+            --ch2: #715a5a;
+            --ch3: #44444e;
+            --ch4: #37353e;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -195,12 +195,12 @@
         /* ── Balance Sheet ── */
         .bs-net {
             text-align: center;
-            background: var(--ch4);
+            background: #000;
             border-radius: 12px;
             padding: 18px;
             margin-bottom: 16px;
         }
-        .bs-net .label { font-size: 0.82rem; color: var(--ch2); margin-bottom: 4px; }
+        .bs-net .label { font-size: 0.82rem; color: var(--ch1); margin-bottom: 4px; }
         .bs-net .value { font-size: 1.5rem; font-weight: 700; color: #fff; }
         .bs-wrap {
             display: flex;
@@ -209,22 +209,22 @@
         }
         .bs-side {
             flex: 1;
-            background: var(--ch1);
+            background: #fff;
             border-radius: 12px;
             padding: 20px;
-            border: 1px solid var(--ch2);
+            border: 1px solid var(--ch1);
         }
         .bs-side.asset { border-top: 3px solid var(--ch3); }
-        .bs-side.debt  { border-top: 3px solid var(--ch4); }
+        .bs-side.debt  { border-top: 3px solid var(--ch2); }
         .bs-title {
             font-size: 0.82rem;
             font-weight: 700;
             margin-bottom: 12px;
             padding-bottom: 8px;
-            border-bottom: 1px solid var(--ch2);
+            border-bottom: 1px solid var(--ch1);
         }
         .bs-side.asset .bs-title { color: var(--ch3); }
-        .bs-side.debt  .bs-title { color: var(--ch4); }
+        .bs-side.debt  .bs-title { color: var(--ch2); }
         .bs-row {
             display: flex;
             justify-content: space-between;
@@ -232,18 +232,18 @@
             font-size: 0.88rem;
         }
         .bs-row .label { color: var(--ch4); }
-        .bs-row .amt { font-weight: 600; color: var(--ch4); }
+        .bs-row .amt { font-weight: 600; color: #000; }
         .bs-total {
             display: flex;
             justify-content: space-between;
             padding: 10px 0 0;
             margin-top: 8px;
-            border-top: 2px solid var(--ch2);
+            border-top: 2px solid var(--ch1);
             font-weight: 700;
             font-size: 1rem;
         }
         .bs-side.asset .bs-total { color: var(--ch3); }
-        .bs-side.debt  .bs-total { color: var(--ch4); }
+        .bs-side.debt  .bs-total { color: var(--ch2); }
 
         @media (max-width: 600px) {
             .bs-wrap { flex-direction: column; }
