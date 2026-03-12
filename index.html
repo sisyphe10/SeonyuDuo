@@ -576,6 +576,10 @@ async function loadAssets(aligns) {
             const totalDebt = debts.reduce((s, x) => s + x.amt, 0);
             const netWorth = totalListed - totalDebt;
 
+            listed.sort((a, b) => b.amt - a.amt);
+            unlisted.sort((a, b) => b.amt - a.amt);
+            debts.sort((a, b) => b.amt - a.amt);
+
             let leftRows = '';
             listed.forEach(x => {
                 leftRows += `<div class="bs-row"><span class="label">${x.display}</span><span class="amt">${formatMoney(x.amt)}</span></div>`;
