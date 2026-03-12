@@ -558,8 +558,8 @@ function formatCell(val, colName) {
     if (cn === '날짜') return formatDateStr(val);
     if (cn === '요일') return formatDayStr(val);
     if (cn === '금액') return formatMoney(val);
-    if (cn === '완료') {
-        const v = String(val ?? '').toUpperCase();
+    if (cn.includes('완료')) {
+        const v = String(val ?? '').toUpperCase().trim();
         const checked = (val === true || v === 'TRUE');
         return `<input type="checkbox"${checked ? ' checked' : ''} disabled style="pointer-events:none;width:16px;height:16px;accent-color:var(--dm-coral)">`;
     }
@@ -583,7 +583,8 @@ function renderSheet(cols, rows, aligns) {
         html += '<tr>';
         headers.forEach((h, i) => {
             const ws = ['내용','결정사항','메모'].includes(h) ? 'white-space:normal;max-width:250px;' : '';
-            html += `<td style="${ws}text-align:${aligns[i] || 'center'}">${formatCell(r[i], h)}</td>`;
+            const bodyAlign = (h === '내용') ? 'left' : (aligns[i] || 'center');
+            html += `<td style="${ws}text-align:${bodyAlign}">${formatCell(r[i], h)}</td>`;
         });
         html += '</tr>';
     });
