@@ -292,24 +292,14 @@
 </header>
 
 <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('budget')">가계부</button>
-    <button class="tab-btn" onclick="switchTab('assets')">자산관리</button>
+    <button class="tab-btn active" onclick="switchTab('assets')">자산관리</button>
     <button class="tab-btn" onclick="switchTab('meeting')">가족회의</button>
 </div>
 
 <div class="content">
 
-    <!-- ====== 가계부 ====== -->
-    <div id="tab-budget" class="tab-content active">
-        <div id="budget-summary" class="summary-grid"></div>
-        <div class="card">
-            <div class="card-title">지출 내역</div>
-            <div id="budget-table"><div class="loading">데이터 로딩 중</div></div>
-        </div>
-    </div>
-
     <!-- ====== 자산관리 ====== -->
-    <div id="tab-assets" class="tab-content">
+    <div id="tab-assets" class="tab-content active">
         <div id="assets-summary" class="summary-grid"></div>
         <div class="card">
             <div class="card-title">자산 현황</div>
@@ -376,7 +366,6 @@ function switchTab(tab) {
 const SHEET_ID = '';  // 예: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms'
 
 const SHEET_NAMES = {
-    budget: '가계부',
     assets: '자산',
     meeting: '가족회의'
 };
@@ -407,7 +396,6 @@ async function loadAllData() {
         showConfigBanner();
         return;
     }
-    loadBudget();
     loadAssets();
     loadMeeting();
 }
@@ -416,93 +404,21 @@ function showConfigBanner() {
     const banner = `
         <div class="config-banner">
             Google Sheets 연동이 필요합니다:<br>
-            1. Google Sheets에서 시트 3개 생성: <code>가계부</code> <code>자산</code> <code>가족회의</code><br>
+            1. Google Sheets에서 시트 2개 생성: <code>자산</code> <code>가족회의</code><br>
             2. 파일 &rarr; 공유 &rarr; 웹에 게시 &rarr; 전체 문서 게시<br>
             3. Sheet URL에서 ID 복사 (docs.google.com/spreadsheets/d/<b>여기</b>/edit)<br>
             4. index.html의 <code>SHEET_ID</code>에 붙여넣기
         </div>`;
 
-    ['budget-table', 'assets-table', 'meeting-table'].forEach(id => {
+    ['assets-table', 'meeting-table'].forEach(id => {
         document.getElementById(id).innerHTML = banner;
     });
     document.getElementById('budget-summary').innerHTML = '';
     document.getElementById('assets-summary').innerHTML = '';
 }
 
-// ── 가계부 ──
-// 시트 컬럼: 날짜 | 카테고리 | 내용 | 금액 | 메모
-async function loadBudget() {
-    try {
-        const { cols, rows } = await fetchSheet(SHEET_NAMES.budget);
-        if (rows.length === 0) {
-            document.getElementById('budget-table').innerHTML = emptyState('아직 지출 내역이 없습니다', '가계부 시트에 데이터를 입력하세요');
-            return;
-        }
-
-        // Summary
-        let totalExpense = 0;
-        const catMap = {};
-        const monthMap = {};
-        rows.forEach(r => {
-            const amt = Number(r[3]) || 0;
-            totalExpense += amt;
-            const cat = r[1] || '기타';
-            catMap[cat] = (catMap[cat] || 0) + amt;
-            // 이번 달
-            const d = parseDate(r[0]);
-            if (d) {
-                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-                monthMap[key] = (monthMap[key] || 0) + amt;
-            }
-        });
-
-        const now = new Date();
-        const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-        const thisMonthTotal = monthMap[thisMonth] || 0;
-        const topCat = Object.entries(catMap).sort((a,b) => b[1]-a[1])[0];
-
-        document.getElementById('budget-summary').innerHTML = `
-            <div class="summary-card">
-                <div class="summary-label">이번 달 지출</div>
-                <div class="summary-value">${formatMoney(thisMonthTotal)}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">전체 지출</div>
-                <div class="summary-value">${formatMoney(totalExpense)}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">최다 카테고리</div>
-                <div class="summary-value" style="font-size:1.1rem">${topCat ? topCat[0] : '-'}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">총 건수</div>
-                <div class="summary-value">${rows.length}</div>
-            </div>`;
-
-        // Table (최신순)
-        const sorted = [...rows].reverse();
-        let html = `<table class="data-table"><thead><tr>
-            <th>날짜</th><th>카테고리</th><th>내용</th><th class="num">금액</th><th>메모</th>
-        </tr></thead><tbody>`;
-        sorted.slice(0, 50).forEach(r => {
-            html += `<tr>
-                <td class="center">${formatDateStr(r[0])}</td>
-                <td>${r[1] || ''}</td>
-                <td>${r[2] || ''}</td>
-                <td class="num">${formatMoney(r[3])}</td>
-                <td>${r[4] || ''}</td>
-            </tr>`;
-        });
-        html += '</tbody></table>';
-        if (rows.length > 50) html += `<p style="text-align:center;color:#8a7e76;font-size:0.8rem;margin-top:10px">최근 50건 표시 (전체 ${rows.length}건)</p>`;
-        document.getElementById('budget-table').innerHTML = html;
-    } catch (e) {
-        document.getElementById('budget-table').innerHTML = errorState('가계부 데이터를 불러올 수 없습니다');
-    }
-}
-
 // ── 자산관리 ──
-// 시트 컬럼: 자산명 | 카테고리 | 금액 | 메모
+// 시트 컬럼: 날짜 | 자산명 | 카테고리 | 금액 | 메모
 async function loadAssets() {
     try {
         const { cols, rows } = await fetchSheet(SHEET_NAMES.assets);
@@ -514,9 +430,9 @@ async function loadAssets() {
         let totalAssets = 0;
         const catMap = {};
         rows.forEach(r => {
-            const amt = Number(r[2]) || 0;
+            const amt = Number(r[3]) || 0;
             totalAssets += amt;
-            const cat = r[1] || '기타';
+            const cat = r[2] || '기타';
             catMap[cat] = (catMap[cat] || 0) + amt;
         });
 
@@ -537,15 +453,17 @@ async function loadAssets() {
         });
         document.getElementById('assets-summary').innerHTML = summaryHtml;
 
+        const sorted = [...rows].reverse();
         let html = `<table class="data-table"><thead><tr>
-            <th>자산명</th><th>카테고리</th><th class="num">금액</th><th>메모</th>
+            <th>날짜</th><th>자산명</th><th>카테고리</th><th class="num">금액</th><th>메모</th>
         </tr></thead><tbody>`;
-        rows.forEach(r => {
+        sorted.forEach(r => {
             html += `<tr>
-                <td>${r[0] || ''}</td>
+                <td class="center">${formatDateStr(r[0])}</td>
                 <td>${r[1] || ''}</td>
-                <td class="num">${formatMoney(r[2])}</td>
-                <td>${r[3] || ''}</td>
+                <td>${r[2] || ''}</td>
+                <td class="num">${formatMoney(r[3])}</td>
+                <td>${r[4] || ''}</td>
             </tr>`;
         });
         html += '</tbody></table>';
