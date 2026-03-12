@@ -553,6 +553,7 @@ async function loadAssets(aligns) {
         const nameIdx = cols.indexOf('자산명');
         if (amtIdx !== -1) {
             const memoIdx = cols.indexOf('메모');
+            const ownerIdx = cols.indexOf('담당자');
             const listed = [];    // 일반 자산
             const unlisted = [];  // 비상장
             const debts = [];     // 부채 (대출)
@@ -561,13 +562,15 @@ async function loadAssets(aligns) {
                 const type = typeIdx !== -1 ? (r[typeIdx] || '') : '';
                 const name = nameIdx !== -1 ? (r[nameIdx] || '') : '';
                 const memo = memoIdx !== -1 ? (r[memoIdx] || '') : '';
-                const display = memo ? `${name} - ${memo}` : name;
+                const owner = ownerIdx !== -1 ? (r[ownerIdx] || '') : '';
+                const nameMemo = memo ? `${name} - ${memo}` : name;
+                const display = owner ? `${owner} | ${nameMemo}` : nameMemo;
                 if (type === '대출') {
-                    debts.push({ display, amt });
+                    debts.push({ display, amt, owner });
                 } else if (name.includes('비상장')) {
-                    unlisted.push({ display, amt });
+                    unlisted.push({ display, amt, owner });
                 } else {
-                    listed.push({ display, amt });
+                    listed.push({ display, amt, owner });
                 }
             });
             const totalListed = listed.reduce((s, x) => s + x.amt, 0);
@@ -576,9 +579,13 @@ async function loadAssets(aligns) {
             const totalDebt = debts.reduce((s, x) => s + x.amt, 0);
             const netWorth = totalListed - totalDebt;
 
-            listed.sort((a, b) => b.amt - a.amt);
-            unlisted.sort((a, b) => b.amt - a.amt);
-            debts.sort((a, b) => b.amt - a.amt);
+            const ownerSort = (a, b) => {
+                if (a.owner !== b.owner) return a.owner === 'TS' ? -1 : 1;
+                return b.amt - a.amt;
+            };
+            listed.sort(ownerSort);
+            unlisted.sort(ownerSort);
+            debts.sort(ownerSort);
 
             let leftRows = '';
             listed.forEach(x => {
