@@ -6,16 +6,17 @@
     <title>선유듀오</title>
     <style>
         :root {
-            --bg: #faf8f5;
+            --bg: #fff2eb;
             --card: #ffffff;
-            --accent: #d4856b;
-            --accent-light: #f0ddd5;
-            --text: #3d3530;
+            --accent: #e8967a;
+            --accent-light: #ffdcdc;
+            --text: #5a4a42;
             --text-light: #8a7e76;
-            --border: #e8e0d8;
+            --border: #ffd6ba;
             --green: #5a9e6f;
             --red: #c75c5c;
             --blue: #5b7fb5;
+            --peach: #ffe8cd;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,7 +31,7 @@
         /* ── Password Overlay ── */
         .pw-overlay {
             position: fixed; inset: 0;
-            background: linear-gradient(135deg, #f5ebe0 0%, #d5c4a1 100%);
+            background: linear-gradient(135deg, #fff2eb 0%, #ffe8cd 100%);
             display: flex; align-items: center; justify-content: center;
             z-index: 9999;
         }
@@ -70,7 +71,7 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        .pw-box button:hover { background: #c07460; }
+        .pw-box button:hover { background: #d4856b; }
         .pw-error {
             color: var(--red);
             font-size: 0.85rem;
@@ -81,10 +82,10 @@
 
         /* ── Header ── */
         header {
-            background: linear-gradient(135deg, #d4856b 0%, #c07460 100%);
+            background: linear-gradient(135deg, #ffdcdc 0%, #ffd6ba 100%);
             padding: 24px;
             text-align: center;
-            color: #fff;
+            color: var(--text);
             position: relative;
         }
         header h1 {
@@ -94,9 +95,17 @@
         }
         header .subtitle {
             font-size: 0.9rem;
-            opacity: 0.85;
+            opacity: 0.75;
             margin-top: 4px;
         }
+        header a {
+            color: var(--text);
+            opacity: 0.5;
+            text-decoration: none;
+            font-size: 0.75rem;
+            transition: opacity 0.2s;
+        }
+        header a:hover { opacity: 0.8; }
 
         /* ── Tab Navigation ── */
         .tab-nav {
@@ -164,15 +173,15 @@
             font-weight: 600;
             color: var(--text-light);
             border-bottom: 2px solid var(--border);
-            background: #faf8f5;
+            background: var(--peach);
             white-space: nowrap;
         }
         .data-table td {
             padding: 10px 12px;
-            border-bottom: 1px solid #f0ece6;
+            border-bottom: 1px solid #ffe8cd;
             white-space: nowrap;
         }
-        .data-table tbody tr:hover td { background: #faf8f5; }
+        .data-table tbody tr:hover td { background: #fff2eb; }
         .data-table .num { text-align: right; }
         .data-table .center { text-align: center; }
         .positive { color: var(--red); }
@@ -289,7 +298,10 @@
 
 <header>
     <h1>선유듀오</h1>
-    <div id="lastUpdated" style="position:absolute;top:16px;right:20px;font-size:0.75rem;color:rgba(255,255,255,0.6)"></div>
+    <div style="position:absolute;top:14px;right:20px;text-align:right">
+        <a href="https://docs.google.com/spreadsheets/d/1w6q3UwUER7oINuk50LyMzgF2K0Fbt2wgSVJ34vImo0g/edit" target="_blank">스프레드시트 열기 &#8599;</a>
+        <div id="lastUpdated" style="font-size:0.7rem;color:rgba(90,74,66,0.45);margin-top:4px"></div>
+    </div>
 </header>
 
 <div class="tab-nav">
@@ -421,7 +433,7 @@ function showConfigBanner() {
 }
 
 // ── 자산관리 ──
-// 시트 컬럼: 날짜 | 자산명 | 카테고리 | 금액 | 메모
+// 시트 컬럼: 날짜(0) | 요일(1) | 구분(2) | 자산명(3) | 카테고리(4) | 금액(5) | 메모(6)
 async function loadAssets() {
     try {
         const { cols, rows } = await fetchSheet(SHEET_NAMES.assets);
@@ -433,9 +445,9 @@ async function loadAssets() {
         let totalAssets = 0;
         const catMap = {};
         rows.forEach(r => {
-            const amt = Number(r[3]) || 0;
+            const amt = Number(r[5]) || 0;
             totalAssets += amt;
-            const cat = r[2] || '기타';
+            const cat = r[4] || '기타';
             catMap[cat] = (catMap[cat] || 0) + amt;
         });
 
@@ -458,15 +470,17 @@ async function loadAssets() {
 
         const sorted = [...rows].reverse();
         let html = `<table class="data-table"><thead><tr>
-            <th>날짜</th><th>자산명</th><th>카테고리</th><th class="num">금액</th><th>메모</th>
+            <th>날짜</th><th>요일</th><th>구분</th><th>자산명</th><th>카테고리</th><th class="num">금액</th><th>메모</th>
         </tr></thead><tbody>`;
         sorted.forEach(r => {
             html += `<tr>
                 <td class="center">${formatDateStr(r[0])}</td>
-                <td>${r[1] || ''}</td>
-                <td>${r[2] || ''}</td>
-                <td class="num">${formatMoney(r[3])}</td>
+                <td class="center">${r[1] || ''}</td>
+                <td class="center">${r[2] || ''}</td>
+                <td>${r[3] || ''}</td>
                 <td>${r[4] || ''}</td>
+                <td class="num">${formatMoney(r[5])}</td>
+                <td>${r[6] || ''}</td>
             </tr>`;
         });
         html += '</tbody></table>';
@@ -477,7 +491,7 @@ async function loadAssets() {
 }
 
 // ── 가족회의 ──
-// 시트 컬럼: 날짜 | 주제 | 내용 | 결정사항 | 담당
+// 시트 컬럼: 날짜(0) | 요일(1) | 주제(2) | 내용(3) | 담당자(4) | 결정사항(5)
 async function loadMeeting() {
     try {
         const { cols, rows } = await fetchSheet(SHEET_NAMES.meeting);
@@ -488,15 +502,16 @@ async function loadMeeting() {
 
         const sorted = [...rows].reverse();
         let html = `<table class="data-table"><thead><tr>
-            <th>날짜</th><th>주제</th><th>내용</th><th>결정사항</th><th>담당</th>
+            <th>날짜</th><th>요일</th><th>주제</th><th>내용</th><th>담당자</th><th>결정사항</th>
         </tr></thead><tbody>`;
         sorted.forEach(r => {
             html += `<tr>
                 <td class="center">${formatDateStr(r[0])}</td>
-                <td><strong>${r[1] || ''}</strong></td>
-                <td style="white-space:normal;max-width:250px">${r[2] || ''}</td>
-                <td style="white-space:normal;max-width:200px">${r[3] || ''}</td>
+                <td class="center">${r[1] || ''}</td>
+                <td><strong>${r[2] || ''}</strong></td>
+                <td style="white-space:normal;max-width:250px">${r[3] || ''}</td>
                 <td class="center">${r[4] || ''}</td>
+                <td style="white-space:normal;max-width:200px">${r[5] || ''}</td>
             </tr>`;
         });
         html += '</tbody></table>';
