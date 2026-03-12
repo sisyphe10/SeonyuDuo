@@ -506,8 +506,8 @@ async function fetchAlignments() {
     (json.sheets || []).forEach(sheet => {
         const title = sheet.properties.title;
         const rows = (sheet.data && sheet.data[0] && sheet.data[0].rowData) || [];
-        // Use 2nd row (first data row) alignment; fallback to header row
-        const refRow = rows.length > 1 ? rows[1] : rows[0];
+        // Use header row (1st row) alignment
+        const refRow = rows[0];
         const aligns = (refRow?.values || []).map(v => {
             const a = v?.effectiveFormat?.horizontalAlignment;
             if (a === 'CENTER') return 'center';
@@ -559,8 +559,9 @@ function formatCell(val, colName) {
     if (cn === '요일') return formatDayStr(val);
     if (cn === '금액') return formatMoney(val);
     if (cn === '완료') {
-        const checked = (val === true || val === 'TRUE');
-        return `<input type="checkbox"${checked ? ' checked' : ''} disabled style="pointer-events:none;width:16px;height:16px;accent-color:var(--ch3)">`;
+        const v = String(val ?? '').toUpperCase();
+        const checked = (val === true || v === 'TRUE');
+        return `<input type="checkbox"${checked ? ' checked' : ''} disabled style="pointer-events:none;width:16px;height:16px;accent-color:var(--dm-coral)">`;
     }
     return String(val ?? '');
 }
