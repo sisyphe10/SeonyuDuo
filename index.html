@@ -1097,40 +1097,36 @@ async function loadGoals() {
         const goalIdx = cols.indexOf('목표');
         const periodIdx = cols.indexOf('기간');
 
-        const byOwner = {};
+        const yearly = [];
+        const monthly = [];
         rows.forEach(r => {
             const owner = String(r[ownerIdx] || '').trim();
             const goal = String(r[goalIdx] || '').trim();
             const period = String(r[periodIdx] || '').trim();
             if (!owner || !goal) return;
-            if (!byOwner[owner]) byOwner[owner] = { yearly: [], monthly: [] };
             if (period.includes('년')) {
-                byOwner[owner].yearly.push({ goal, period });
+                yearly.push({ owner, goal, period });
             } else {
-                byOwner[owner].monthly.push({ goal, period });
+                monthly.push({ owner, goal, period });
             }
         });
 
-        let html = '';
-        ['TS', 'NY'].forEach(owner => {
-            const data = byOwner[owner];
-            if (!data) return;
-            html += `<div class="goal-card"><div class="goal-owner">${owner}</div>`;
-            if (data.yearly.length > 0) {
-                html += `<div class="goal-section-title">연간 목표</div>`;
-                data.yearly.forEach(g => {
-                    html += `<div class="goal-item"><span class="goal-badge yearly">${g.period}</span><span>${g.goal}</span></div>`;
+        function renderGoalCard(title, items, badgeClass) {
+            if (items.length === 0) return '';
+            let html = `<div class="goal-card"><div class="goal-owner">${title}</div>`;
+            ['TS', 'NY'].forEach(owner => {
+                const ownerItems = items.filter(x => x.owner === owner);
+                if (ownerItems.length === 0) return;
+                html += `<div class="goal-section-title">${owner}</div>`;
+                ownerItems.forEach(g => {
+                    html += `<div class="goal-item"><span class="goal-badge ${badgeClass}">${g.period}</span><span>${g.goal}</span></div>`;
                 });
-            }
-            if (data.monthly.length > 0) {
-                html += `<div class="goal-section-title">월간 목표</div>`;
-                data.monthly.forEach(g => {
-                    html += `<div class="goal-item"><span class="goal-badge monthly">${g.period}</span><span>${g.goal}</span></div>`;
-                });
-            }
+            });
             html += `</div>`;
-        });
+            return html;
+        }
 
+        const html = renderGoalCard('연간 목표', yearly, 'yearly') + renderGoalCard('월간 목표', monthly, 'monthly');
         document.getElementById('goals-section').innerHTML = html;
     } catch (e) {
         document.getElementById('goals-section').innerHTML = '';
