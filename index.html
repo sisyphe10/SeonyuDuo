@@ -85,6 +85,7 @@
             padding: 24px;
             text-align: center;
             color: #fff;
+            position: relative;
         }
         header h1 {
             font-size: 1.8rem;
@@ -289,6 +290,7 @@
 <header>
     <h1>선유듀오</h1>
     <div class="subtitle">우리 가족 대시보드</div>
+    <div id="lastUpdated" style="position:absolute;top:16px;right:20px;font-size:0.75rem;color:rgba(255,255,255,0.6)"></div>
 </header>
 
 <div class="tab-nav">
@@ -396,8 +398,10 @@ async function loadAllData() {
         showConfigBanner();
         return;
     }
-    loadAssets();
-    loadMeeting();
+    await Promise.all([loadAssets(), loadMeeting()]);
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} KST`;
+    document.getElementById('lastUpdated').textContent = 'Updated: ' + ts;
 }
 
 function showConfigBanner() {
