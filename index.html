@@ -485,7 +485,7 @@ function renderSheet(cols, rows, aligns) {
     while (colCount > 0 && !cols[colCount - 1]) colCount--;
     const headers = cols.slice(0, colCount);
 
-    const sorted = [...rows].reverse();
+    const sorted = rows;
     let html = '<table class="data-table"><thead><tr>';
     headers.forEach((h, i) => {
         html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
