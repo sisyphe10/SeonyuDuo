@@ -202,66 +202,6 @@
             color: var(--text);
         }
 
-        /* ── Photo Album ── */
-        .photo-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
-        }
-        .photo-card {
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid var(--border);
-            background: #fff;
-        }
-        .photo-card img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-        }
-        .photo-card .photo-caption {
-            padding: 10px;
-            font-size: 0.85rem;
-            color: var(--text-light);
-        }
-
-        /* ── Anniversary ── */
-        .anniversary-list {
-            list-style: none;
-        }
-        .anniversary-item {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 14px 0;
-            border-bottom: 1px solid #f0ece6;
-        }
-        .anniversary-item:last-child { border-bottom: none; }
-        .anniversary-date {
-            background: var(--accent-light);
-            color: var(--accent);
-            font-weight: 700;
-            padding: 8px 14px;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            min-width: 90px;
-            text-align: center;
-        }
-        .anniversary-info { flex: 1; }
-        .anniversary-name {
-            font-weight: 600;
-            font-size: 1rem;
-        }
-        .anniversary-dday {
-            font-size: 0.82rem;
-            color: var(--text-light);
-            margin-top: 2px;
-        }
-        .anniversary-dday.upcoming {
-            color: var(--accent);
-            font-weight: 600;
-        }
-
         /* ── Empty State ── */
         .empty-state {
             text-align: center;
@@ -354,8 +294,7 @@
 <div class="tab-nav">
     <button class="tab-btn active" onclick="switchTab('budget')">가계부</button>
     <button class="tab-btn" onclick="switchTab('assets')">자산관리</button>
-    <button class="tab-btn" onclick="switchTab('photos')">사진앨범</button>
-    <button class="tab-btn" onclick="switchTab('anniversary')">기념일</button>
+    <button class="tab-btn" onclick="switchTab('meeting')">가족회의</button>
 </div>
 
 <div class="content">
@@ -378,19 +317,11 @@
         </div>
     </div>
 
-    <!-- ====== 사진앨범 ====== -->
-    <div id="tab-photos" class="tab-content">
+    <!-- ====== 가족회의 ====== -->
+    <div id="tab-meeting" class="tab-content">
         <div class="card">
-            <div class="card-title">사진앨범</div>
-            <div id="photos-grid"><div class="loading">데이터 로딩 중</div></div>
-        </div>
-    </div>
-
-    <!-- ====== 기념일 ====== -->
-    <div id="tab-anniversary" class="tab-content">
-        <div class="card">
-            <div class="card-title">기념일</div>
-            <div id="anniversary-list"><div class="loading">데이터 로딩 중</div></div>
+            <div class="card-title">가족회의 기록</div>
+            <div id="meeting-table"><div class="loading">데이터 로딩 중</div></div>
         </div>
     </div>
 
@@ -447,8 +378,7 @@ const SHEET_ID = '';  // 예: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms'
 const SHEET_NAMES = {
     budget: '가계부',
     assets: '자산',
-    photos: '사진',
-    anniversary: '기념일'
+    meeting: '가족회의'
 };
 
 function sheetUrl(sheetName) {
@@ -479,21 +409,20 @@ async function loadAllData() {
     }
     loadBudget();
     loadAssets();
-    loadPhotos();
-    loadAnniversary();
+    loadMeeting();
 }
 
 function showConfigBanner() {
     const banner = `
         <div class="config-banner">
             Google Sheets 연동이 필요합니다:<br>
-            1. Google Sheets에서 시트 4개 생성: <code>가계부</code> <code>자산</code> <code>사진</code> <code>기념일</code><br>
+            1. Google Sheets에서 시트 3개 생성: <code>가계부</code> <code>자산</code> <code>가족회의</code><br>
             2. 파일 &rarr; 공유 &rarr; 웹에 게시 &rarr; 전체 문서 게시<br>
             3. Sheet URL에서 ID 복사 (docs.google.com/spreadsheets/d/<b>여기</b>/edit)<br>
             4. index.html의 <code>SHEET_ID</code>에 붙여넣기
         </div>`;
 
-    ['budget-table', 'assets-table', 'photos-grid', 'anniversary-list'].forEach(id => {
+    ['budget-table', 'assets-table', 'meeting-table'].forEach(id => {
         document.getElementById(id).innerHTML = banner;
     });
     document.getElementById('budget-summary').innerHTML = '';
@@ -626,94 +555,33 @@ async function loadAssets() {
     }
 }
 
-// ── 사진앨범 ──
-// 시트 컬럼: 날짜 | 제목 | 이미지URL | 설명
-async function loadPhotos() {
+// ── 가족회의 ──
+// 시트 컬럼: 날짜 | 주제 | 내용 | 결정사항 | 담당
+async function loadMeeting() {
     try {
-        const { cols, rows } = await fetchSheet(SHEET_NAMES.photos);
+        const { cols, rows } = await fetchSheet(SHEET_NAMES.meeting);
         if (rows.length === 0) {
-            document.getElementById('photos-grid').innerHTML = emptyState('사진이 없습니다', '사진 시트에 이미지 URL을 입력하세요');
+            document.getElementById('meeting-table').innerHTML = emptyState('회의 기록이 없습니다', '가족회의 시트에 데이터를 입력하세요');
             return;
         }
 
-        let html = '<div class="photo-grid">';
-        [...rows].reverse().forEach(r => {
-            const imgUrl = r[2] || '';
-            const title = r[1] || '';
-            const date = formatDateStr(r[0]);
-            const desc = r[3] || '';
-            if (imgUrl) {
-                html += `
-                    <div class="photo-card">
-                        <img src="${imgUrl}" alt="${title}" loading="lazy" onerror="this.style.display='none'">
-                        <div class="photo-caption">
-                            <strong>${title}</strong><br>
-                            <span style="color:#b0a89e;font-size:0.8rem">${date} ${desc ? '- ' + desc : ''}</span>
-                        </div>
-                    </div>`;
-            }
+        const sorted = [...rows].reverse();
+        let html = `<table class="data-table"><thead><tr>
+            <th>날짜</th><th>주제</th><th>내용</th><th>결정사항</th><th>담당</th>
+        </tr></thead><tbody>`;
+        sorted.forEach(r => {
+            html += `<tr>
+                <td class="center">${formatDateStr(r[0])}</td>
+                <td><strong>${r[1] || ''}</strong></td>
+                <td style="white-space:normal;max-width:250px">${r[2] || ''}</td>
+                <td style="white-space:normal;max-width:200px">${r[3] || ''}</td>
+                <td class="center">${r[4] || ''}</td>
+            </tr>`;
         });
-        html += '</div>';
-        document.getElementById('photos-grid').innerHTML = html;
+        html += '</tbody></table>';
+        document.getElementById('meeting-table').innerHTML = html;
     } catch (e) {
-        document.getElementById('photos-grid').innerHTML = errorState('사진 데이터를 불러올 수 없습니다');
-    }
-}
-
-// ── 기념일 ──
-// 시트 컬럼: 날짜(MM-DD) | 이름 | 유형 | 메모
-async function loadAnniversary() {
-    try {
-        const { cols, rows } = await fetchSheet(SHEET_NAMES.anniversary);
-        if (rows.length === 0) {
-            document.getElementById('anniversary-list').innerHTML = emptyState('기념일이 없습니다', '기념일 시트에 데이터를 입력하세요');
-            return;
-        }
-
-        const now = new Date();
-        const todayMMDD = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-
-        // D-day 계산
-        const items = rows.map(r => {
-            const mmdd = String(r[0] || '').replace(/\//g, '-');
-            const name = r[1] || '';
-            const type = r[2] || '';
-            const memo = r[3] || '';
-
-            let dday = null;
-            if (mmdd.match(/^\d{2}-\d{2}$/)) {
-                const [mm, dd] = mmdd.split('-').map(Number);
-                let target = new Date(now.getFullYear(), mm - 1, dd);
-                if (target < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
-                    target = new Date(now.getFullYear() + 1, mm - 1, dd);
-                }
-                dday = Math.ceil((target - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
-            }
-
-            return { mmdd, name, type, memo, dday };
-        });
-
-        // D-day 가까운 순 정렬
-        items.sort((a, b) => (a.dday ?? 999) - (b.dday ?? 999));
-
-        let html = '<ul class="anniversary-list">';
-        items.forEach(item => {
-            const ddayStr = item.dday === 0 ? '<span class="upcoming">TODAY!</span>'
-                          : item.dday !== null ? `<span class="${item.dday <= 7 ? 'upcoming' : ''}">D-${item.dday}</span>`
-                          : '';
-            html += `
-                <li class="anniversary-item">
-                    <div class="anniversary-date">${item.mmdd}</div>
-                    <div class="anniversary-info">
-                        <div class="anniversary-name">${item.name} ${item.type ? '<span style="color:#8a7e76;font-size:0.85rem">(' + item.type + ')</span>' : ''}</div>
-                        <div class="anniversary-dday">${ddayStr} ${item.memo ? '&middot; ' + item.memo : ''}</div>
-                    </div>
-                </li>`;
-        });
-        html += '</ul>';
-        document.getElementById('anniversary-list').innerHTML = html;
-    } catch (e) {
-        document.getElementById('anniversary-list').innerHTML = errorState('기념일 데이터를 불러올 수 없습니다');
+        document.getElementById('meeting-table').innerHTML = errorState('가족회의 데이터를 불러올 수 없습니다');
     }
 }
 
