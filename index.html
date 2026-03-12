@@ -194,6 +194,47 @@
         }
         .memo-tip:hover .memo-tip-text,
         .memo-tip.show-tip .memo-tip-text { display: block; }
+        .goal-card {
+            flex: 1;
+            min-width: 260px;
+            background: var(--dm-card);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .goal-card .goal-owner {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: var(--dm-text);
+            margin-bottom: 14px;
+        }
+        .goal-card .goal-section-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--dm-text2);
+            margin-bottom: 6px;
+            margin-top: 12px;
+        }
+        .goal-card .goal-section-title:first-of-type { margin-top: 0; }
+        .goal-card .goal-item {
+            font-size: 0.82rem;
+            color: var(--dm-text);
+            padding: 6px 0;
+            border-bottom: 1px solid var(--dm-divider);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .goal-card .goal-item:last-child { border-bottom: none; }
+        .goal-badge {
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+        .goal-badge.monthly { background: var(--dm-pale); color: var(--dm-indigo); }
+        .goal-badge.yearly { background: #FFF0EE; color: var(--dm-coral); }
         .data-table {
             width: 100%;
             border-collapse: collapse;
@@ -429,6 +470,7 @@
 
     <!-- ====== 가족회의 ====== -->
     <div id="tab-meeting" class="tab-content">
+        <div id="goals-section" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
         <div class="card">
             <div class="card-title">가족회의 기록</div>
             <div id="meeting-table"><div class="loading">데이터 로딩 중</div></div>
@@ -487,7 +529,8 @@ const SHEET_ID = '1w6q3UwUER7oINuk50LyMzgF2K0Fbt2wgSVJ34vImo0g';
 
 const SHEET_NAMES = {
     assets: '자산관리',
-    meeting: '가족회의'
+    meeting: '가족회의',
+    goals: '목표'
 };
 
 const GOOGLE_API_KEY = 'AIzaSyCHPiRby5FVAIKDwneZHy1KGl3SfycjZEw';
@@ -548,7 +591,7 @@ async function loadAllData() {
     }
     let alignments = {};
     try { alignments = await fetchAlignments(); } catch(e) {}
-    await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || [])]);
+    await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || []), loadGoals()]);
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} KST`;
     document.getElementById('lastUpdated').textContent = 'Updated: ' + ts;
@@ -1041,6 +1084,56 @@ async function loadMeeting(aligns) {
         document.getElementById('meeting-table').innerHTML = renderSheet(cols, rows, aligns);
     } catch (e) {
         document.getElementById('meeting-table').innerHTML = errorState('가족회의 데이터를 불러올 수 없습니다');
+    }
+}
+
+// ── 목표 ──
+async function loadGoals() {
+    try {
+        const { cols, rows } = await fetchSheet(SHEET_NAMES.goals);
+        if (rows.length === 0) { document.getElementById('goals-section').innerHTML = ''; return; }
+
+        const ownerIdx = cols.indexOf('담당자');
+        const goalIdx = cols.indexOf('목표');
+        const periodIdx = cols.indexOf('기간');
+
+        const byOwner = {};
+        rows.forEach(r => {
+            const owner = String(r[ownerIdx] || '').trim();
+            const goal = String(r[goalIdx] || '').trim();
+            const period = String(r[periodIdx] || '').trim();
+            if (!owner || !goal) return;
+            if (!byOwner[owner]) byOwner[owner] = { yearly: [], monthly: [] };
+            if (period.includes('년')) {
+                byOwner[owner].yearly.push({ goal, period });
+            } else {
+                byOwner[owner].monthly.push({ goal, period });
+            }
+        });
+
+        let html = '';
+        ['TS', 'NY'].forEach(owner => {
+            const data = byOwner[owner];
+            if (!data) return;
+            html += `<div class="goal-card"><div class="goal-owner">${owner}</div>`;
+            if (data.yearly.length > 0) {
+                html += `<div class="goal-section-title">연간 목표</div>`;
+                data.yearly.forEach(g => {
+                    html += `<div class="goal-item"><span class="goal-badge yearly">${g.period}</span><span>${g.goal}</span></div>`;
+                });
+            }
+            if (data.monthly.length > 0) {
+                html += `<div class="goal-section-title">월간 목표</div>`;
+                data.monthly.forEach(g => {
+                    html += `<div class="goal-item"><span class="goal-badge monthly">${g.period}</span><span>${g.goal}</span></div>`;
+                });
+            }
+            html += `</div>`;
+        });
+
+        document.getElementById('goals-section').innerHTML = html;
+    } catch (e) {
+        document.getElementById('goals-section').innerHTML = '';
     }
 }
 
