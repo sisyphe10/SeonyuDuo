@@ -233,8 +233,9 @@
             border-radius: 10px;
             white-space: nowrap;
         }
-        .goal-badge.monthly { background: var(--dm-pale); color: var(--dm-indigo); }
-        .goal-badge.yearly { background: #FFF0EE; color: var(--dm-coral); }
+        .goal-badge.duo { background: #222; color: #fff; }
+        .goal-badge.ts { background: var(--dm-coral); color: #fff; }
+        .goal-badge.ny { background: var(--dm-blue); color: #fff; }
         .data-table {
             width: 100%;
             border-collapse: collapse;
@@ -1114,13 +1115,14 @@ async function loadGoals() {
         // 연간 목표 카드
         function renderYearlyCard(items) {
             if (items.length === 0) return '';
-            let html = `<div class="goal-card"><div class="goal-owner">연간 목표</div>`;
+            const yearLabel = items[0]?.period || '';
+            let html = `<div class="goal-card"><div class="goal-owner" style="display:flex;justify-content:space-between;align-items:center">연간 목표<span style="font-size:0.75rem;font-weight:600;color:var(--dm-text2)">${yearLabel}</span></div>`;
             ['Duo', 'TS', 'NY'].forEach(owner => {
                 const ownerItems = items.filter(x => x.owner === owner);
                 if (ownerItems.length === 0) return;
                 html += `<div class="goal-section-title">${owner}</div>`;
                 ownerItems.forEach(g => {
-                    html += `<div class="goal-item"><span class="goal-badge yearly">${g.period}</span><span>${g.goal}</span></div>`;
+                    html += `<div class="goal-item"><span class="goal-badge ${owner.toLowerCase()}">${owner}</span><span>${g.goal}</span></div>`;
                 });
             });
             html += `</div>`;
@@ -1142,7 +1144,7 @@ async function loadGoals() {
                 ['Duo', 'TS', 'NY'].forEach(owner => {
                     const ownerItems = items.filter(x => x.period === month && x.owner === owner);
                     ownerItems.forEach(g => {
-                        html += `<div class="goal-item"><span class="goal-badge monthly">${g.owner}</span><span>${g.goal}</span></div>`;
+                        html += `<div class="goal-item"><span class="goal-badge ${g.owner.toLowerCase()}">${g.owner}</span><span>${g.goal}</span></div>`;
                     });
                 });
             });
