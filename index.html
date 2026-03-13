@@ -1111,22 +1111,46 @@ async function loadGoals() {
             }
         });
 
-        function renderGoalCard(title, items, badgeClass) {
+        // 연간 목표 카드
+        function renderYearlyCard(items) {
             if (items.length === 0) return '';
-            let html = `<div class="goal-card"><div class="goal-owner">${title}</div>`;
-            ['TS', 'NY'].forEach(owner => {
+            let html = `<div class="goal-card"><div class="goal-owner">연간 목표</div>`;
+            ['Duo', 'TS', 'NY'].forEach(owner => {
                 const ownerItems = items.filter(x => x.owner === owner);
                 if (ownerItems.length === 0) return;
                 html += `<div class="goal-section-title">${owner}</div>`;
                 ownerItems.forEach(g => {
-                    html += `<div class="goal-item"><span class="goal-badge ${badgeClass}">${g.period}</span><span>${g.goal}</span></div>`;
+                    html += `<div class="goal-item"><span class="goal-badge yearly">${g.period}</span><span>${g.goal}</span></div>`;
                 });
             });
             html += `</div>`;
             return html;
         }
 
-        const html = renderGoalCard('연간 목표', yearly, 'yearly') + renderGoalCard('월간 목표', monthly, 'monthly');
+        // 월간 목표 카드: 월별 → 담당자별
+        function renderMonthlyCard(items) {
+            if (items.length === 0) return '';
+            // 월 순서 정렬
+            const monthOrder = m => {
+                const n = parseInt(m);
+                return isNaN(n) ? 99 : n;
+            };
+            const months = [...new Set(items.map(x => x.period))].sort((a, b) => monthOrder(a) - monthOrder(b));
+            let html = `<div class="goal-card"><div class="goal-owner">월간 목표</div>`;
+            months.forEach(month => {
+                html += `<div class="goal-section-title">${month}</div>`;
+                ['Duo', 'TS', 'NY'].forEach(owner => {
+                    const ownerItems = items.filter(x => x.period === month && x.owner === owner);
+                    ownerItems.forEach(g => {
+                        html += `<div class="goal-item"><span class="goal-badge monthly">${g.owner}</span><span>${g.goal}</span></div>`;
+                    });
+                });
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        const html = renderYearlyCard(yearly) + renderMonthlyCard(monthly);
         document.getElementById('goals-section').innerHTML = html;
     } catch (e) {
         document.getElementById('goals-section').innerHTML = '';
