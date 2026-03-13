@@ -1119,8 +1119,6 @@ async function loadGoals() {
             let html = `<div class="goal-card"><div class="goal-owner" style="display:flex;justify-content:space-between;align-items:center">연간 목표<span style="font-size:0.75rem;font-weight:600;color:var(--dm-text2)">${yearLabel}</span></div>`;
             ['Duo', 'TS', 'NY'].forEach(owner => {
                 const ownerItems = items.filter(x => x.owner === owner);
-                if (ownerItems.length === 0) return;
-                html += `<div class="goal-section-title">${owner}</div>`;
                 ownerItems.forEach(g => {
                     html += `<div class="goal-item"><span class="goal-badge ${owner.toLowerCase()}">${owner}</span><span>${g.goal}</span></div>`;
                 });
