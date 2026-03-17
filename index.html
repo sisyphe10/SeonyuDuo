@@ -458,37 +458,41 @@
             color: #555;
         }
 
-        /* D-Day Cards */
+        /* D-Day Section */
         .dday-section { margin-bottom: 16px; }
-        .dday-cards {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+        .dday-month-group { margin-bottom: 12px; }
+        .dday-month-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-light);
+            margin-bottom: 6px;
+            padding-left: 2px;
         }
-        .dday-card {
+        .dday-list { display: flex; flex-direction: column; gap: 6px; }
+        .dday-row {
             background: #fff;
-            border-radius: 12px;
-            padding: 14px 18px;
+            border-radius: 10px;
+            padding: 12px 16px;
             border: 1px solid var(--border);
-            min-width: 160px;
-            flex: 1;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
-        .dday-card.today { border-color: var(--accent); border-width: 2px; }
-        .dday-card.past { opacity: 0.45; }
-        .dday-name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
-        .dday-date { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+        .dday-row.today { border-color: var(--accent); border-width: 2px; }
+        .dday-date-col {
+            min-width: 52px;
+            text-align: center;
+        }
+        .dday-date-day { font-size: 1.1rem; font-weight: 800; color: var(--text); }
+        .dday-date-dow { font-size: 0.7rem; color: var(--text-light); }
+        .dday-name { flex: 1; font-size: 0.9rem; font-weight: 600; color: var(--text); }
         .dday-badge {
-            font-size: 1rem;
+            font-size: 0.85rem;
             font-weight: 800;
             color: var(--accent);
             white-space: nowrap;
         }
-        .dday-card.today .dday-badge { color: var(--accent); }
-        .dday-card.past .dday-badge { color: var(--text-light); }
+        .dday-row.today .dday-badge { color: var(--accent); }
 
         .evt-table { width: 100%; border-collapse: collapse; }
         .evt-table th {
@@ -1391,12 +1395,11 @@ function getLunarBirthdays(year) {
     const results = [];
     LUNAR_BIRTHDAYS.forEach(b => {
         try {
-            cal.setLunarDate(year, b.lunarMonth, b.lunarDay, false);
-            const sYear = cal.getSolarYear();
-            const sMonth = cal.getSolarMonth();
-            const sDay = cal.getSolarDay();
-            const dateStr = `${sYear}-${String(sMonth).padStart(2,'0')}-${String(sDay).padStart(2,'0')}`;
-            results.push({ summary: `🎂 ${b.name} (음${b.lunarMonth}/${b.lunarDay})`, date: dateStr, startTime: null, endTime: null, allDay: true, isBirthday: true });
+            if (cal.setLunarDate(year, b.lunarMonth, b.lunarDay, false)) {
+                const s = cal.getSolarCalendar();
+                const dateStr = `${s.year}-${String(s.month).padStart(2,'0')}-${String(s.day).padStart(2,'0')}`;
+                results.push({ summary: `🎂 ${b.name} (음${b.lunarMonth}/${b.lunarDay})`, date: dateStr, startTime: null, endTime: null, allDay: true, isBirthday: true });
+            }
         } catch(e) {}
     });
     return results;
@@ -1490,35 +1493,48 @@ function renderDdayCards() {
         seen.add(key);
         return true;
     });
-
-    // Sort by closest first
     unique.sort((a, b) => a.date.localeCompare(b.date));
 
-    let html = '<div class="dday-cards">';
+    // Group by month
+    const groups = {};
     unique.forEach(ev => {
-        const evMs = new Date(ev.date).getTime();
-        const diffDays = Math.round((evMs - todayMs) / 86400000);
-        let badge;
-        if (diffDays === 0) badge = 'D-Day';
-        else if (diffDays > 0) badge = `D-${diffDays}`;
-        else badge = `D+${Math.abs(diffDays)}`;
-
-        const isToday = diffDays === 0;
-        const isPast = diffDays < 0;
-        const cls = isToday ? ' today' : isPast ? ' past' : '';
-
-        const [, mm, dd] = ev.date.split('-');
-        const dow = ['일','월','화','수','목','금','토'][new Date(ev.date).getDay()];
-
-        html += `<div class="dday-card${cls}">
-            <div>
-                <div class="dday-name">${cleanSummary(ev.summary)}</div>
-                <div class="dday-date">${parseInt(mm)}/${parseInt(dd)} (${dow})</div>
-            </div>
-            <div class="dday-badge">${badge}</div>
-        </div>`;
+        const ym = ev.date.slice(0, 7);
+        if (!groups[ym]) groups[ym] = [];
+        groups[ym].push(ev);
     });
-    html += '</div>';
+
+    let html = '';
+    Object.keys(groups).sort().forEach(ym => {
+        const [gy, gm] = ym.split('-').map(Number);
+        html += `<div class="dday-month-group">`;
+        html += `<div class="dday-month-label">${gy}년 ${gm}월</div>`;
+        html += `<div class="dday-list">`;
+
+        groups[ym].forEach(ev => {
+            const evMs = new Date(ev.date).getTime();
+            const diffDays = Math.round((evMs - todayMs) / 86400000);
+            let badge;
+            if (diffDays === 0) badge = 'D-Day';
+            else if (diffDays > 0) badge = `D-${diffDays}`;
+            else badge = `D+${Math.abs(diffDays)}`;
+
+            const isToday = diffDays === 0;
+            const [, , dd] = ev.date.split('-');
+            const dow = ['일','월','화','수','목','금','토'][new Date(ev.date).getDay()];
+
+            html += `<div class="dday-row${isToday ? ' today' : ''}">
+                <div class="dday-date-col">
+                    <div class="dday-date-day">${parseInt(dd)}</div>
+                    <div class="dday-date-dow">${dow}</div>
+                </div>
+                <div class="dday-name">${cleanSummary(ev.summary)}</div>
+                <div class="dday-badge">${badge}</div>
+            </div>`;
+        });
+
+        html += '</div></div>';
+    });
+
     document.getElementById('ddaySection').innerHTML = html;
 }
 
