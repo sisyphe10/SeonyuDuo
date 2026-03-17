@@ -1378,6 +1378,10 @@ const LUNAR_BIRTHDAYS = [
     { name: '연순 생일', lunarMonth: 5, lunarDay: 3 },
     { name: '맹호 생일', lunarMonth: 8, lunarDay: 16 },
 ];
+const LUNAR_HOLIDAYS = [
+    { name: '설날', emoji: '🧧', lunarMonth: 1, lunarDay: 1 },
+    { name: '추석', emoji: '🌕', lunarMonth: 8, lunarDay: 15 },
+];
 let calYear, calMonth, calEvents = [];
 
 function initCalState() {
@@ -1390,7 +1394,7 @@ initCalState();
 function calPrevMonth() { calMonth--; if (calMonth < 1) { calMonth = 12; calYear--; } loadCalendar(); }
 function calNextMonth() { calMonth++; if (calMonth > 12) { calMonth = 1; calYear++; } loadCalendar(); }
 
-function getLunarBirthdays(year) {
+function getLunarEvents(year) {
     const cal = new KoreanLunarCalendar();
     const results = [];
     LUNAR_BIRTHDAYS.forEach(b => {
@@ -1399,6 +1403,15 @@ function getLunarBirthdays(year) {
                 const s = cal.getSolarCalendar();
                 const dateStr = `${s.year}-${String(s.month).padStart(2,'0')}-${String(s.day).padStart(2,'0')}`;
                 results.push({ summary: `🎂 ${b.name} (음력 ${b.lunarMonth}/${b.lunarDay})`, date: dateStr, startTime: null, endTime: null, allDay: true, isBirthday: true });
+            }
+        } catch(e) {}
+    });
+    LUNAR_HOLIDAYS.forEach(h => {
+        try {
+            if (cal.setLunarDate(year, h.lunarMonth, h.lunarDay, false)) {
+                const s = cal.getSolarCalendar();
+                const dateStr = `${s.year}-${String(s.month).padStart(2,'0')}-${String(s.day).padStart(2,'0')}`;
+                results.push({ summary: `${h.emoji} ${h.name}`, date: dateStr, startTime: null, endTime: null, allDay: true, isBirthday: true });
             }
         } catch(e) {}
     });
@@ -1442,7 +1455,7 @@ async function loadCalendar() {
         });
 
         // Lunar birthdays for current + next year
-        const birthdays = [...getLunarBirthdays(now.getFullYear()), ...getLunarBirthdays(now.getFullYear() + 1)];
+        const birthdays = [...getLunarEvents(now.getFullYear()), ...getLunarEvents(now.getFullYear() + 1)];
 
         const allEvents = [...allApiEvents, ...birthdays].sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
 
