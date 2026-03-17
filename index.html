@@ -389,6 +389,97 @@
             font-size: 0.82rem;
         }
 
+        /* ── Calendar ── */
+        .cal-month-nav {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .cal-month-nav button {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            color: var(--text);
+            transition: all 0.2s;
+        }
+        .cal-month-nav button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .cal-month-label { font-size: 1.05rem; font-weight: 700; min-width: 110px; text-align: center; }
+
+        .cal-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-bottom: 20px;
+        }
+        .cal-dow {
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-light);
+            padding: 6px 0;
+        }
+        .cal-dow.sun { color: var(--red); }
+        .cal-dow.sat { color: var(--blue); }
+        .cal-cell {
+            background: #fff;
+            border-radius: 8px;
+            padding: 5px;
+            min-height: 72px;
+            border: 1px solid var(--border);
+            cursor: default;
+        }
+        .cal-cell.empty { background: transparent; border: none; }
+        .cal-cell.today { border-color: var(--accent); border-width: 2px; }
+        .cal-cell.sun .cal-d { color: var(--red); }
+        .cal-cell.sat .cal-d { color: var(--blue); }
+        .cal-d { font-size: 0.72rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+        .cal-ev {
+            font-size: 0.6rem;
+            line-height: 1.35;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-bottom: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: var(--peach);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .evt-table { width: 100%; border-collapse: collapse; }
+        .evt-table th {
+            background: #FAFAFA;
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-light);
+            border-bottom: 2px solid var(--border);
+        }
+        .evt-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+        .evt-table tr:hover td { background: #FAFAFA; }
+        .evt-date-badge {
+            display: inline-block;
+            background: var(--peach);
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 0.78rem;
+            padding: 2px 8px;
+            border-radius: 6px;
+        }
+        .evt-time { color: var(--text-light); font-size: 0.8rem; }
+        .evt-empty { text-align: center; padding: 40px; color: var(--text-light); }
+
         footer {
             text-align: center;
             padding: 24px;
@@ -429,6 +520,7 @@
 
 <div class="tab-nav">
     <button class="tab-btn active" onclick="switchTab('assets')">자산관리</button>
+    <button class="tab-btn" onclick="switchTab('calendar')">캘린더</button>
     <button class="tab-btn" onclick="switchTab('meeting')">가족회의</button>
 </div>
 
@@ -466,6 +558,22 @@
         <div class="card">
             <div class="card-title">자산 현황</div>
             <div id="assets-table"><div class="loading">데이터 로딩 중</div></div>
+        </div>
+    </div>
+
+    <!-- ====== 캘린더 ====== -->
+    <div id="tab-calendar" class="tab-content">
+        <div class="cal-month-nav">
+            <button onclick="calPrevMonth()">&#9664;</button>
+            <span class="cal-month-label" id="calMonthLabel"></span>
+            <button onclick="calNextMonth()">&#9654;</button>
+        </div>
+        <div class="card" style="padding:16px;">
+            <div class="cal-grid" id="calGrid"></div>
+        </div>
+        <div class="card">
+            <div class="card-title">일정 목록</div>
+            <div id="calEventList"></div>
         </div>
     </div>
 
@@ -592,7 +700,7 @@ async function loadAllData() {
     }
     let alignments = {};
     try { alignments = await fetchAlignments(); } catch(e) {}
-    await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || []), loadGoals()]);
+    await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || []), loadGoals(), loadCalendar()]);
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} KST`;
     document.getElementById('lastUpdated').textContent = 'Updated: ' + ts;
@@ -1193,6 +1301,105 @@ function emptyState(msg, hint) {
 
 function errorState(msg) {
     return `<div class="empty-state"><div class="icon">⚠️</div><div class="msg">${msg}</div><div class="hint">Google Sheets 연결 상태를 확인하세요</div></div>`;
+}
+
+// ── 캘린더 ──
+const CAL_ID = 'a49c912f9e11c6e050c873312ae00a314e45dc075540c86cf428c9921fcbc20c@group.calendar.google.com';
+let calYear, calMonth, calEvents = [];
+
+function initCalState() {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    calYear = now.getFullYear();
+    calMonth = now.getMonth() + 1;
+}
+initCalState();
+
+function calPrevMonth() { calMonth--; if (calMonth < 1) { calMonth = 12; calYear--; } loadCalendar(); }
+function calNextMonth() { calMonth++; if (calMonth > 12) { calMonth = 1; calYear++; } loadCalendar(); }
+
+async function loadCalendar() {
+    document.getElementById('calMonthLabel').textContent = `${calYear}년 ${calMonth}월`;
+
+    const from = new Date(calYear, calMonth - 1, 1);
+    const nextM = calMonth === 12 ? 1 : calMonth + 1;
+    const nextY = calMonth === 12 ? calYear + 1 : calYear;
+    const to = new Date(nextY, nextM, 0, 23, 59, 59);
+
+    try {
+        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CAL_ID)}/events?key=${GOOGLE_API_KEY}&timeMin=${from.toISOString()}&timeMax=${to.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=200`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(res.status);
+        const data = await res.json();
+        calEvents = (data.items || []).map(ev => {
+            const allDay = !!ev.start.date;
+            const start = allDay ? ev.start.date : ev.start.dateTime;
+            const end = allDay ? ev.end.date : ev.end.dateTime;
+            return { summary: ev.summary || '(제목 없음)', date: start.slice(0, 10), startTime: allDay ? null : start.slice(11, 16), endTime: allDay ? null : end.slice(11, 16), allDay };
+        });
+    } catch (e) {
+        calEvents = [];
+        document.getElementById('calEventList').innerHTML = '<div class="evt-empty">캘린더를 불러올 수 없습니다.<br><span style="font-size:0.78rem">캘린더가 공개 설정되어 있는지 확인하세요.</span></div>';
+    }
+    renderCalGrid();
+    renderCalEventList();
+}
+
+function renderCalGrid() {
+    const y = calYear, m = calMonth;
+    const firstDay = new Date(y, m - 1, 1).getDay();
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const isThisMonth = now.getFullYear() === y && now.getMonth() + 1 === m;
+
+    const dayNames = ['일','월','화','수','목','금','토'];
+    let html = dayNames.map((d, i) => `<div class="cal-dow${i===0?' sun':i===6?' sat':''}">${d}</div>`).join('');
+
+    const evByDay = {};
+    calEvents.forEach(ev => {
+        const [ey, em, ed] = ev.date.split('-').map(Number);
+        if (ey === y && em === m) { if (!evByDay[ed]) evByDay[ed] = []; evByDay[ed].push(ev); }
+    });
+
+    for (let i = 0; i < firstDay; i++) html += '<div class="cal-cell empty"></div>';
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dow = (firstDay + d - 1) % 7;
+        const isToday = isThisMonth && now.getDate() === d;
+        let cls = 'cal-cell' + (dow===0?' sun':'') + (dow===6?' sat':'') + (isToday?' today':'');
+        let evHtml = '';
+        if (evByDay[d]) {
+            evByDay[d].slice(0, 3).forEach(ev => { evHtml += `<div class="cal-ev">${ev.allDay ? '' : ev.startTime+' '}${ev.summary}</div>`; });
+            if (evByDay[d].length > 3) evHtml += `<div style="font-size:0.58rem;color:var(--text-light)">+${evByDay[d].length-3}개</div>`;
+        }
+        html += `<div class="${cls}"><div class="cal-d">${d}</div>${evHtml}</div>`;
+    }
+    document.getElementById('calGrid').innerHTML = html;
+}
+
+function renderCalEventList() {
+    const nextM = calMonth === 12 ? 1 : calMonth + 1;
+    const nextY = calMonth === 12 ? calYear + 1 : calYear;
+    const filtered = calEvents.filter(ev => {
+        const [ey, em] = ev.date.split('-').map(Number);
+        return (ey === calYear && em === calMonth) || (ey === nextY && em === nextM);
+    });
+
+    if (filtered.length === 0) {
+        document.getElementById('calEventList').innerHTML = '<div class="evt-empty">등록된 일정이 없습니다</div>';
+        return;
+    }
+
+    let html = '<table class="evt-table"><thead><tr><th>날짜</th><th>시간</th><th>일정</th></tr></thead><tbody>';
+    let lastDate = '';
+    filtered.forEach(ev => {
+        const [, mm, dd] = ev.date.split('-');
+        const dow = ['일','월','화','수','목','금','토'][new Date(ev.date).getDay()];
+        const showDate = ev.date !== lastDate;
+        lastDate = ev.date;
+        const timeStr = ev.allDay ? '종일' : `${ev.startTime}~${ev.endTime}`;
+        html += `<tr><td>${showDate ? `<span class="evt-date-badge">${parseInt(mm)}/${parseInt(dd)} (${dow})</span>` : ''}</td><td class="evt-time">${timeStr}</td><td>${ev.summary}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('calEventList').innerHTML = html;
 }
 </script>
 
