@@ -432,6 +432,7 @@
             min-height: 72px;
             border: 1px solid var(--border);
             cursor: default;
+            overflow-y: auto;
         }
         .cal-cell.empty { background: transparent; border: none; }
         .cal-cell.today { border-color: var(--accent); border-width: 2px; }
@@ -1367,8 +1368,7 @@ function renderCalGrid() {
         let cls = 'cal-cell' + (dow===0?' sun':'') + (dow===6?' sat':'') + (isToday?' today':'');
         let evHtml = '';
         if (evByDay[d]) {
-            evByDay[d].slice(0, 3).forEach(ev => { evHtml += `<div class="cal-ev">${ev.allDay ? '' : ev.startTime+' '}${ev.summary}</div>`; });
-            if (evByDay[d].length > 3) evHtml += `<div style="font-size:0.58rem;color:var(--text-light)">+${evByDay[d].length-3}개</div>`;
+            evByDay[d].forEach(ev => { evHtml += `<div class="cal-ev">${ev.allDay ? '' : ev.startTime+' '}${ev.summary}</div>`; });
         }
         html += `<div class="${cls}"><div class="cal-d">${d}</div>${evHtml}</div>`;
     }
