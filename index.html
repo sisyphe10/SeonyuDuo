@@ -1305,7 +1305,10 @@ function errorState(msg) {
 }
 
 // ── 캘린더 ──
-const CAL_ID = 'a49c912f9e11c6e050c873312ae00a314e45dc075540c86cf428c9921fcbc20c@group.calendar.google.com';
+const CAL_IDS = [
+    'a49c912f9e11c6e050c873312ae00a314e45dc075540c86cf428c9921fcbc20c@group.calendar.google.com',
+    'ea6tlekqo2hrf8oovaj5l1alblqhv41l@import.calendar.google.com'
+];
 let calYear, calMonth, calEvents = [];
 
 function initCalState() {
@@ -1327,16 +1330,20 @@ async function loadCalendar() {
     const to = new Date(nextY, nextM, 0, 23, 59, 59);
 
     try {
-        const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CAL_ID)}/events?key=${GOOGLE_API_KEY}&timeMin=${from.toISOString()}&timeMax=${to.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=200`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(res.status);
-        const data = await res.json();
-        calEvents = (data.items || []).map(ev => {
+        const fetches = CAL_IDS.map(async calId => {
+            const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?key=${GOOGLE_API_KEY}&timeMin=${from.toISOString()}&timeMax=${to.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=200`;
+            const res = await fetch(url);
+            if (!res.ok) return [];
+            const data = await res.json();
+            return (data.items || []);
+        });
+        const results = await Promise.all(fetches);
+        calEvents = results.flat().map(ev => {
             const allDay = !!ev.start.date;
             const start = allDay ? ev.start.date : ev.start.dateTime;
             const end = allDay ? ev.end.date : ev.end.dateTime;
             return { summary: ev.summary || '(제목 없음)', date: start.slice(0, 10), startTime: allDay ? null : start.slice(11, 16), endTime: allDay ? null : end.slice(11, 16), allDay };
-        });
+        }).sort((a, b) => (a.date + (a.startTime || '')) .localeCompare(b.date + (b.startTime || '')));
     } catch (e) {
         calEvents = [];
         document.getElementById('calEventList').innerHTML = '<div class="evt-empty">캘린더를 불러올 수 없습니다.<br><span style="font-size:0.78rem">캘린더가 공개 설정되어 있는지 확인하세요.</span></div>';
