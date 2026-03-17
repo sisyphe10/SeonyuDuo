@@ -474,6 +474,30 @@
             font-size: 0.85rem;
         }
         .evt-table tr:hover td { background: #FAFAFA; }
+        .evt-table tr.past td { color: #ccc; }
+        .evt-table tr.past .evt-date-badge { background: #f5f5f5; color: #bbb; }
+        .evt-table tr.past .evt-time { color: #ccc; }
+        .evt-month-group { margin-bottom: 16px; }
+        .evt-month-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: #FAFAFA;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--text);
+            transition: background 0.2s;
+            user-select: none;
+        }
+        .evt-month-header:hover { background: #f0f0f0; }
+        .evt-month-header .evt-arrow { font-size: 0.75rem; color: var(--text-light); transition: transform 0.2s; }
+        .evt-month-header .evt-arrow.open { transform: rotate(180deg); }
+        .evt-month-header .evt-count { font-size: 0.75rem; color: var(--text-light); font-weight: 500; }
+        .evt-month-body { display: none; margin-top: 4px; }
+        .evt-month-body.open { display: block; }
         .evt-date-badge {
             display: inline-block;
             background: var(--peach);
@@ -1435,18 +1459,53 @@ function renderCalEventList() {
         return;
     }
 
-    let html = '<table class="evt-table"><thead><tr><th>날짜</th><th>시간</th><th>일정</th></tr></thead><tbody>';
-    let lastDate = '';
+    // Group by month
+    const groups = {};
     filtered.forEach(ev => {
-        const [, mm, dd] = ev.date.split('-');
-        const dow = ['일','월','화','수','목','금','토'][new Date(ev.date).getDay()];
-        const showDate = ev.date !== lastDate;
-        lastDate = ev.date;
-        const timeStr = ev.allDay ? '종일' : `${ev.startTime}~${ev.endTime}`;
-        html += `<tr><td>${showDate ? `<span class="evt-date-badge">${parseInt(mm)}/${parseInt(dd)} (${dow})</span>` : ''}</td><td class="evt-time">${timeStr}</td><td>${ev.summary}</td></tr>`;
+        const ym = ev.date.slice(0, 7);
+        if (!groups[ym]) groups[ym] = [];
+        groups[ym].push(ev);
     });
-    html += '</tbody></table>';
+
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+    let html = '';
+    Object.keys(groups).sort().forEach(ym => {
+        const [gy, gm] = ym.split('-').map(Number);
+        const isCurrentMonth = gy === calYear && gm === calMonth;
+        const evts = groups[ym];
+
+        html += `<div class="evt-month-group">`;
+        html += `<div class="evt-month-header" onclick="toggleEvtMonth(this)">
+            <span>${gy}년 ${gm}월 <span class="evt-count">(${evts.length}건)</span></span>
+            <span class="evt-arrow${isCurrentMonth ? ' open' : ''}">▼</span>
+        </div>`;
+        html += `<div class="evt-month-body${isCurrentMonth ? ' open' : ''}">`;
+        html += '<table class="evt-table"><thead><tr><th>날짜</th><th>시간</th><th>일정</th></tr></thead><tbody>';
+
+        let lastDate = '';
+        evts.forEach(ev => {
+            const [, mm, dd] = ev.date.split('-');
+            const dow = ['일','월','화','수','목','금','토'][new Date(ev.date).getDay()];
+            const showDate = ev.date !== lastDate;
+            lastDate = ev.date;
+            const timeStr = ev.allDay ? '종일' : `${ev.startTime}~${ev.endTime}`;
+            const isPast = ev.date < todayStr;
+            html += `<tr class="${isPast ? 'past' : ''}"><td>${showDate ? `<span class="evt-date-badge">${parseInt(mm)}/${parseInt(dd)} (${dow})</span>` : ''}</td><td class="evt-time">${timeStr}</td><td>${ev.summary}</td></tr>`;
+        });
+
+        html += '</tbody></table></div></div>';
+    });
+
     document.getElementById('calEventList').innerHTML = html;
+}
+
+function toggleEvtMonth(el) {
+    const body = el.nextElementSibling;
+    const arrow = el.querySelector('.evt-arrow');
+    body.classList.toggle('open');
+    arrow.classList.toggle('open');
 }
 </script>
 
