@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.1/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/korean-lunar-calendar@0.3.6/dist/korean-lunar-calendar.min.js"></script>
     <style>
         :root {
             --bg: #F0EDEA;
@@ -449,8 +450,12 @@
             overflow: hidden;
             text-overflow: ellipsis;
             background: var(--peach);
-            color: var(--accent);
+            color: #222;
             font-weight: 600;
+        }
+        .cal-ev.birthday {
+            background: #FFF0F5;
+            color: #222;
         }
 
         .evt-table { width: 100%; border-collapse: collapse; }
@@ -1306,8 +1311,15 @@ function errorState(msg) {
 
 // ── 캘린더 ──
 const CAL_IDS = [
-    'a49c912f9e11c6e050c873312ae00a314e45dc075540c86cf428c9921fcbc20c@group.calendar.google.com',
-    'ea6tlekqo2hrf8oovaj5l1alblqhv41l@import.calendar.google.com'
+    'a49c912f9e11c6e050c873312ae00a314e45dc075540c86cf428c9921fcbc20c@group.calendar.google.com'
+];
+
+// 음력 생일 (음력 월/일)
+const LUNAR_BIRTHDAYS = [
+    { name: '혜자 생일', lunarMonth: 3, lunarDay: 4 },
+    { name: '동석 생일', lunarMonth: 3, lunarDay: 12 },
+    { name: '연순 생일', lunarMonth: 5, lunarDay: 3 },
+    { name: '맹호 생일', lunarMonth: 8, lunarDay: 16 },
 ];
 let calYear, calMonth, calEvents = [];
 
@@ -1320,6 +1332,22 @@ initCalState();
 
 function calPrevMonth() { calMonth--; if (calMonth < 1) { calMonth = 12; calYear--; } loadCalendar(); }
 function calNextMonth() { calMonth++; if (calMonth > 12) { calMonth = 1; calYear++; } loadCalendar(); }
+
+function getLunarBirthdays(year) {
+    const cal = new KoreanLunarCalendar();
+    const results = [];
+    LUNAR_BIRTHDAYS.forEach(b => {
+        try {
+            cal.setLunarDate(year, b.lunarMonth, b.lunarDay, false);
+            const sYear = cal.getSolarYear();
+            const sMonth = cal.getSolarMonth();
+            const sDay = cal.getSolarDay();
+            const dateStr = `${sYear}-${String(sMonth).padStart(2,'0')}-${String(sDay).padStart(2,'0')}`;
+            results.push({ summary: `🎂 ${b.name} (음${b.lunarMonth}/${b.lunarDay})`, date: dateStr, startTime: null, endTime: null, allDay: true, isBirthday: true });
+        } catch(e) {}
+    });
+    return results;
+}
 
 async function loadCalendar() {
     document.getElementById('calMonthLabel').textContent = `${calYear}년 ${calMonth}월`;
@@ -1338,12 +1366,20 @@ async function loadCalendar() {
             return (data.items || []);
         });
         const results = await Promise.all(fetches);
-        calEvents = results.flat().map(ev => {
+        const apiEvents = results.flat().map(ev => {
             const allDay = !!ev.start.date;
             const start = allDay ? ev.start.date : ev.start.dateTime;
             const end = allDay ? ev.end.date : ev.end.dateTime;
-            return { summary: ev.summary || '(제목 없음)', date: start.slice(0, 10), startTime: allDay ? null : start.slice(11, 16), endTime: allDay ? null : end.slice(11, 16), allDay };
-        }).sort((a, b) => (a.date + (a.startTime || '')) .localeCompare(b.date + (b.startTime || '')));
+            return { summary: ev.summary || '(제목 없음)', date: start.slice(0, 10), startTime: allDay ? null : start.slice(11, 16), endTime: allDay ? null : end.slice(11, 16), allDay, isBirthday: false };
+        });
+        const birthdays = [...getLunarBirthdays(calYear), ...getLunarBirthdays(calMonth === 12 ? calYear + 1 : calYear)];
+        calEvents = [...apiEvents, ...birthdays].sort((a, b) => (a.date + (a.startTime || '')).localeCompare(b.date + (b.startTime || '')));
+        // Remove duplicate birthdays
+        const seen = new Set();
+        calEvents = calEvents.filter(ev => {
+            if (ev.isBirthday) { const key = ev.date + ev.summary; if (seen.has(key)) return false; seen.add(key); }
+            return true;
+        });
     } catch (e) {
         calEvents = [];
         document.getElementById('calEventList').innerHTML = '<div class="evt-empty">캘린더를 불러올 수 없습니다.<br><span style="font-size:0.78rem">캘린더가 공개 설정되어 있는지 확인하세요.</span></div>';
@@ -1375,7 +1411,11 @@ function renderCalGrid() {
         let cls = 'cal-cell' + (dow===0?' sun':'') + (dow===6?' sat':'') + (isToday?' today':'');
         let evHtml = '';
         if (evByDay[d]) {
-            evByDay[d].forEach(ev => { evHtml += `<div class="cal-ev">${ev.allDay ? '' : ev.startTime+' '}${ev.summary}</div>`; });
+            const allDayEvs = evByDay[d].filter(e => e.allDay);
+            const timedEvs = evByDay[d].filter(e => !e.allDay);
+            allDayEvs.forEach(ev => { evHtml += `<div class="cal-ev${ev.isBirthday ? ' birthday' : ''}">${ev.summary}</div>`; });
+            if (allDayEvs.length > 0 && timedEvs.length > 0) evHtml += '<div style="border-top:1px solid #e0e0e0;margin:2px 0"></div>';
+            timedEvs.forEach(ev => { evHtml += `<div class="cal-ev">${ev.startTime} ${ev.summary}</div>`; });
         }
         html += `<div class="${cls}"><div class="cal-d">${d}</div>${evHtml}</div>`;
     }
