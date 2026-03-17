@@ -458,6 +458,38 @@
             color: #222;
         }
 
+        /* D-Day Cards */
+        .dday-section { margin-bottom: 16px; }
+        .dday-cards {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .dday-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px 18px;
+            border: 1px solid var(--border);
+            min-width: 160px;
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .dday-card.today { border-color: var(--accent); border-width: 2px; }
+        .dday-card.past { opacity: 0.45; }
+        .dday-name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+        .dday-date { font-size: 0.7rem; color: var(--text-light); margin-top: 2px; }
+        .dday-badge {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+        .dday-card.today .dday-badge { color: var(--accent); }
+        .dday-card.past .dday-badge { color: var(--text-light); }
+
         .evt-table { width: 100%; border-collapse: collapse; }
         .evt-table th {
             background: #FAFAFA;
@@ -601,6 +633,7 @@
         <div class="card" style="padding:16px;">
             <div class="cal-grid" id="calGrid"></div>
         </div>
+        <div id="ddaySection" class="dday-section"></div>
         <div class="card">
             <div class="card-title">일정 목록</div>
             <div id="calEventList"></div>
@@ -1408,8 +1441,74 @@ async function loadCalendar() {
         calEvents = [];
         document.getElementById('calEventList').innerHTML = '<div class="evt-empty">캘린더를 불러올 수 없습니다.<br><span style="font-size:0.78rem">캘린더가 공개 설정되어 있는지 확인하세요.</span></div>';
     }
+    renderDdayCards();
     renderCalGrid();
     renderCalEventList();
+}
+
+function isDdayEvent(ev) {
+    return ev.isBirthday || ev.summary.startsWith('D-day |') || ev.summary.startsWith('D-day|');
+}
+
+function cleanSummary(summary) {
+    if (summary.startsWith('D-day |')) return summary.slice(7).trim();
+    if (summary.startsWith('D-day|')) return summary.slice(6).trim();
+    return summary;
+}
+
+function renderDdayCards() {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const todayMs = new Date(todayStr).getTime();
+
+    const ddayEvents = calEvents.filter(isDdayEvent);
+    if (ddayEvents.length === 0) { document.getElementById('ddaySection').innerHTML = ''; return; }
+
+    // Deduplicate by date+summary
+    const seen = new Set();
+    const unique = ddayEvents.filter(ev => {
+        const key = ev.date + cleanSummary(ev.summary);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+
+    // Sort: future first (closest), then past (most recent)
+    unique.sort((a, b) => {
+        const aFuture = a.date >= todayStr;
+        const bFuture = b.date >= todayStr;
+        if (aFuture && !bFuture) return -1;
+        if (!aFuture && bFuture) return 1;
+        if (aFuture) return a.date.localeCompare(b.date);
+        return b.date.localeCompare(a.date);
+    });
+
+    let html = '<div class="dday-cards">';
+    unique.forEach(ev => {
+        const evMs = new Date(ev.date).getTime();
+        const diffDays = Math.round((evMs - todayMs) / 86400000);
+        let badge;
+        if (diffDays === 0) badge = 'D-Day';
+        else if (diffDays > 0) badge = `D-${diffDays}`;
+        else badge = `D+${Math.abs(diffDays)}`;
+
+        const isToday = diffDays === 0;
+        const isPast = diffDays < 0;
+        const cls = isToday ? ' today' : isPast ? ' past' : '';
+
+        const [, mm, dd] = ev.date.split('-');
+        const dow = ['일','월','화','수','목','금','토'][new Date(ev.date).getDay()];
+
+        html += `<div class="dday-card${cls}">
+            <div>
+                <div class="dday-name">${cleanSummary(ev.summary)}</div>
+                <div class="dday-date">${parseInt(mm)}/${parseInt(dd)} (${dow})</div>
+            </div>
+            <div class="dday-badge">${badge}</div>
+        </div>`;
+    });
+    html += '</div>';
+    document.getElementById('ddaySection').innerHTML = html;
 }
 
 function renderCalGrid() {
@@ -1437,9 +1536,9 @@ function renderCalGrid() {
         if (evByDay[d]) {
             const allDayEvs = evByDay[d].filter(e => e.allDay);
             const timedEvs = evByDay[d].filter(e => !e.allDay);
-            allDayEvs.forEach(ev => { evHtml += `<div class="cal-ev${ev.isBirthday ? ' birthday' : ''}">${ev.summary}</div>`; });
+            allDayEvs.forEach(ev => { evHtml += `<div class="cal-ev${ev.isBirthday ? ' birthday' : ''}">${cleanSummary(ev.summary)}</div>`; });
             if (allDayEvs.length > 0 && timedEvs.length > 0) evHtml += '<div style="border-top:1px solid #e0e0e0;margin:2px 0"></div>';
-            timedEvs.forEach(ev => { evHtml += `<div class="cal-ev">${ev.startTime} ${ev.summary}</div>`; });
+            timedEvs.forEach(ev => { evHtml += `<div class="cal-ev">${ev.startTime} ${cleanSummary(ev.summary)}</div>`; });
         }
         html += `<div class="${cls}"><div class="cal-d">${d}</div>${evHtml}</div>`;
     }
@@ -1492,7 +1591,7 @@ function renderCalEventList() {
             lastDate = ev.date;
             const timeStr = ev.allDay ? '종일' : `${ev.startTime}~${ev.endTime}`;
             const isPast = ev.date < todayStr;
-            html += `<tr class="${isPast ? 'past' : ''}"><td>${showDate ? `<span class="evt-date-badge">${parseInt(mm)}/${parseInt(dd)} (${dow})</span>` : ''}</td><td class="evt-time">${timeStr}</td><td>${ev.summary}</td></tr>`;
+            html += `<tr class="${isPast ? 'past' : ''}"><td>${showDate ? `<span class="evt-date-badge">${parseInt(mm)}/${parseInt(dd)} (${dow})</span>` : ''}</td><td class="evt-time">${timeStr}</td><td>${cleanSummary(ev.summary)}</td></tr>`;
         });
 
         html += '</tbody></table></div></div>';
