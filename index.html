@@ -1398,7 +1398,7 @@ function getLunarBirthdays(year) {
             if (cal.setLunarDate(year, b.lunarMonth, b.lunarDay, false)) {
                 const s = cal.getSolarCalendar();
                 const dateStr = `${s.year}-${String(s.month).padStart(2,'0')}-${String(s.day).padStart(2,'0')}`;
-                results.push({ summary: `🎂 ${b.name} (음${b.lunarMonth}/${b.lunarDay})`, date: dateStr, startTime: null, endTime: null, allDay: true, isBirthday: true });
+                results.push({ summary: `🎂 ${b.name} (음력 ${b.lunarMonth}/${b.lunarDay})`, date: dateStr, startTime: null, endTime: null, allDay: true, isBirthday: true });
             }
         } catch(e) {}
     });
@@ -1437,7 +1437,10 @@ async function loadCalendar() {
             const allDay = !!ev.start.date;
             const start = allDay ? ev.start.date : ev.start.dateTime;
             const end = allDay ? ev.end.date : ev.end.dateTime;
-            return { summary: ev.summary || '(제목 없음)', date: start.slice(0, 10), startTime: allDay ? null : start.slice(11, 16), endTime: allDay ? null : end.slice(11, 16), allDay, isBirthday: false };
+            const raw = ev.summary || '(제목 없음)';
+            const summary = isDdayPrefix(raw) ? addEmoji(stripDdayPrefix(raw)) : addEmoji(raw);
+            const ddayTagged = isDdayPrefix(raw);
+            return { summary: ddayTagged ? 'D-day | ' + summary : summary, date: start.slice(0, 10), startTime: allDay ? null : start.slice(11, 16), endTime: allDay ? null : end.slice(11, 16), allDay, isBirthday: false };
         });
 
         // Lunar birthdays for current + next year
@@ -1468,6 +1471,9 @@ async function loadCalendar() {
     renderCalGrid();
 }
 
+function isDdayPrefix(s) { return s.startsWith('D-day |') || s.startsWith('D-day|'); }
+function stripDdayPrefix(s) { return s.startsWith('D-day |') ? s.slice(7).trim() : s.startsWith('D-day|') ? s.slice(6).trim() : s; }
+
 function isDdayEvent(ev) {
     return ev.isBirthday || ev.summary.startsWith('D-day |') || ev.summary.startsWith('D-day|');
 }
@@ -1476,6 +1482,45 @@ function cleanSummary(summary) {
     if (summary.startsWith('D-day |')) return summary.slice(7).trim();
     if (summary.startsWith('D-day|')) return summary.slice(6).trim();
     return summary;
+}
+
+const EMOJI_RULES = [
+    [/결혼기념|웨딩|결혼식/, '💒'],
+    [/생일|birthday/i, '🎂'],
+    [/휴가|여행|vacation|trip|travel/i, '🏖️'],
+    [/크리스마스|christmas/i, '🎄'],
+    [/새해|신년|new year/i, '🎆'],
+    [/추석/, '🌕'],
+    [/설날|구정/, '🧧'],
+    [/기념일|anniversary/i, '💝'],
+    [/병원|진료|검진|치과/, '🏥'],
+    [/회의|미팅|meeting/i, '📋'],
+    [/공연|콘서트|concert|뮤지컬|연극/, '🎵'],
+    [/영화|movie/i, '🎬'],
+    [/운동|헬스|요가|필라테스/, '💪'],
+    [/이사|입주/, '🏠'],
+    [/졸업|입학/, '🎓'],
+    [/시험|테스트|자격증/, '📝'],
+    [/출장/, '✈️'],
+    [/식사|저녁|점심|맛집|레스토랑/, '🍽️'],
+    [/카페|커피/, '☕'],
+    [/캠핑/, '⛺'],
+    [/등산|산행|하이킹/, '⛰️'],
+    [/수영/, '🏊'],
+    [/골프/, '⛳'],
+    [/스키|보드/, '🎿'],
+    [/꽃|플라워/, '🌸'],
+    [/선물/, '🎁'],
+    [/파티|party/i, '🎉'],
+];
+
+function addEmoji(summary) {
+    // Already has emoji at start
+    if (/^\p{Emoji}/u.test(summary)) return summary;
+    for (const [regex, emoji] of EMOJI_RULES) {
+        if (regex.test(summary)) return emoji + ' ' + summary;
+    }
+    return '📌 ' + summary;
 }
 
 function renderDdayCards() {
