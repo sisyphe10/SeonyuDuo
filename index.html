@@ -1438,9 +1438,7 @@ async function loadCalendar() {
             const start = allDay ? ev.start.date : ev.start.dateTime;
             const end = allDay ? ev.end.date : ev.end.dateTime;
             const raw = ev.summary || '(제목 없음)';
-            const summary = isDdayPrefix(raw) ? addEmoji(stripDdayPrefix(raw)) : addEmoji(raw);
-            const ddayTagged = isDdayPrefix(raw);
-            return { summary: ddayTagged ? 'D-day | ' + summary : summary, date: start.slice(0, 10), startTime: allDay ? null : start.slice(11, 16), endTime: allDay ? null : end.slice(11, 16), allDay, isBirthday: false };
+            return { summary: raw, date: start.slice(0, 10), startTime: allDay ? null : start.slice(11, 16), endTime: allDay ? null : end.slice(11, 16), allDay, isBirthday: false };
         });
 
         // Lunar birthdays for current + next year
@@ -1572,7 +1570,7 @@ function renderDdayCards() {
                     <div class="dday-date-day">${parseInt(dd)}</div>
                     <div class="dday-date-dow">${dow}</div>
                 </div>
-                <div class="dday-name">${cleanSummary(ev.summary)}</div>
+                <div class="dday-name">${ev.isBirthday ? cleanSummary(ev.summary) : addEmoji(cleanSummary(ev.summary))}</div>
                 <div class="dday-badge">${badge}</div>
             </div>`;
         });
