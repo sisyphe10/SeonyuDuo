@@ -1281,35 +1281,10 @@ async function loadExercise() {
             document.getElementById('exercise-table').innerHTML = emptyState('운동 기록이 없습니다', '운동 시트에 데이터를 입력하세요');
             return;
         }
-
         // 최신순 정렬
         const dateIdx = cols.indexOf('날짜');
         if (dateIdx >= 0) rows.sort((a, b) => (b[dateIdx] || '').localeCompare(a[dateIdx] || ''));
-
-        // 내용 컬럼의 줄바꿈 처리
-        const contentIdx = cols.indexOf('내용');
-        const processed = rows.map(r => {
-            const row = [...r];
-            if (contentIdx >= 0 && row[contentIdx]) {
-                row[contentIdx] = row[contentIdx].replace(/\n/g, '<br>');
-            }
-            return row;
-        });
-
-        let html = '<table class="data-table"><thead><tr>';
-        cols.forEach(c => { html += `<th>${c}</th>`; });
-        html += '</tr></thead><tbody>';
-        processed.forEach(r => {
-            html += '<tr>';
-            cols.forEach((c, i) => {
-                const val = r[i] || '';
-                const style = c === '내용' ? ' style="text-align:left;white-space:pre-wrap;font-size:0.83rem;line-height:1.5;min-width:300px;"' : '';
-                html += `<td${style}>${val}</td>`;
-            });
-            html += '</tr>';
-        });
-        html += '</tbody></table>';
-        document.getElementById('exercise-table').innerHTML = html;
+        document.getElementById('exercise-table').innerHTML = renderSheet(cols, rows, []);
     } catch (e) {
         document.getElementById('exercise-table').innerHTML = errorState('운동 데이터를 불러올 수 없습니다');
     }
