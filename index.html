@@ -726,7 +726,7 @@ function parseGviz(text) {
     const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s)[1]);
     const cols = json.table.cols.map(c => c.label);
     const rows = json.table.rows.map(r =>
-        r.c.map(cell => cell ? (cell.v !== null ? cell.v : (cell.f || '')) : '')
+        r.c.map(cell => cell ? (cell.f || (cell.v !== null ? cell.v : '')) : '')
     );
     return { cols, rows };
 }
