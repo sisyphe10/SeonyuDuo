@@ -723,7 +723,11 @@ function sheetUrl(sheetName) {
 
 function parseGviz(text) {
     // Google Visualization API returns "google.visualization.Query.setResponse({...})"
-    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s)[1]);
+    let raw = text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s)[1];
+    // Date(y,m,d) → "Date(y,m,d)" 로 변환하여 JSON 파싱 가능하게
+    raw = raw.replace(/new Date\((\d+,\d+,\d+(?:,\d+)*)\)/g, '"Date($1)"')
+             .replace(/(?<!")Date\((\d+,\d+,\d+(?:,\d+)*)\)/g, '"Date($1)"');
+    const json = JSON.parse(raw);
     const cols = json.table.cols.map(c => c.label);
     const rows = json.table.rows.map(r =>
         r.c.map(cell => {
