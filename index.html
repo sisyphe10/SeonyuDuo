@@ -723,17 +723,14 @@ function sheetUrl(sheetName) {
 
 function parseGviz(text) {
     // Google Visualization API returns "google.visualization.Query.setResponse({...})"
-    let raw = text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s)[1];
-    // Date(y,m,d) → "Date(y,m,d)" 로 변환하여 JSON 파싱 가능하게
-    raw = raw.replace(/new Date\((\d+,\d+,\d+(?:,\d+)*)\)/g, '"Date($1)"')
-             .replace(/(?<!")Date\((\d+,\d+,\d+(?:,\d+)*)\)/g, '"Date($1)"');
-    const json = JSON.parse(raw);
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s)[1]);
+    const colTypes = json.table.cols.map(c => c.type);
     const cols = json.table.cols.map(c => c.label);
     const rows = json.table.rows.map(r =>
-        r.c.map(cell => {
+        r.c.map((cell, i) => {
             if (!cell) return '';
-            // Date 타입이면 포맷된 값 사용 (Date(2026,2,22) 방지)
-            if (cell.v !== null && typeof cell.v === 'string' && cell.v.toString().startsWith('Date(')) return cell.f || '';
+            // date/datetime 타입은 포맷된 값 사용 (Date(2026,2,22) 방지)
+            if (colTypes[i] === 'date' || colTypes[i] === 'datetime') return cell.f || '';
             return cell.v !== null ? cell.v : (cell.f || '');
         })
     );
@@ -1308,7 +1305,7 @@ async function loadExercise() {
             html += '<tr>';
             cols.forEach((c, i) => {
                 const val = r[i] || '';
-                const style = c === '내용' ? ' style="text-align:left;white-space:pre-line;font-size:0.83rem;line-height:1.5;"' : '';
+                const style = c === '내용' ? ' style="text-align:left;white-space:pre-wrap;font-size:0.83rem;line-height:1.5;min-width:300px;"' : '';
                 html += `<td${style}>${val}</td>`;
             });
             html += '</tr>';
