@@ -726,7 +726,12 @@ function parseGviz(text) {
     const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\((.+)\)/s)[1]);
     const cols = json.table.cols.map(c => c.label);
     const rows = json.table.rows.map(r =>
-        r.c.map(cell => cell ? (cell.f || (cell.v !== null ? cell.v : '')) : '')
+        r.c.map(cell => {
+            if (!cell) return '';
+            // Date 타입이면 포맷된 값 사용 (Date(2026,2,22) 방지)
+            if (cell.v !== null && typeof cell.v === 'string' && cell.v.toString().startsWith('Date(')) return cell.f || '';
+            return cell.v !== null ? cell.v : (cell.f || '');
+        })
     );
     return { cols, rows };
 }
