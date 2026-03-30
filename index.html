@@ -474,7 +474,8 @@
             align-items: center;
             gap: 12px;
         }
-        .dday-row.today { border-color: var(--accent); border-width: 2px; }
+        .dday-row.soon { background: #FFF0EE; }
+        .dday-row.today { border-color: var(--accent); border-width: 2px; background: #FFE0DB; }
         .dday-date-col {
             min-width: 40px;
             text-align: center;
@@ -1591,10 +1592,11 @@ function renderDdayCards() {
         else badge = `D+${Math.abs(diffDays)}`;
 
         const isToday = diffDays === 0;
+        const isSoon = diffDays > 0 && diffDays <= 30;
         const [yy, mm, dd] = ev.date.split('-');
         const dow = ['일','월','화','수','목','금','토'][new Date(ev.date).getDay()];
 
-        html += `<div class="dday-row${isToday ? ' today' : ''}">
+        html += `<div class="dday-row${isToday ? ' today' : isSoon ? ' soon' : ''}">
             <div class="dday-date-col">
                 <div class="dday-date-day">${parseInt(mm)}/${parseInt(dd)}</div>
                 <div class="dday-date-dow">${dow}</div>
