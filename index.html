@@ -766,7 +766,7 @@
                             <th style="padding:8px;text-align:center;">유형</th>
                             <th style="padding:8px;text-align:center;">카테고리</th>
                             <th style="padding:8px;text-align:right;">금액</th>
-                            <th style="padding:8px;text-align:left;">메모</th>
+                            <th style="padding:8px;text-align:center;">메모</th>
                             <th style="padding:8px;text-align:center;">통장</th>
                         </tr>
                     </thead>
@@ -1967,9 +1967,9 @@ function renderLedger() {
             <td style="padding:8px;text-align:center;">${d.date.slice(5)}</td>
             <td style="padding:8px;text-align:center;color:${color};font-weight:600;">${d.type}</td>
             <td style="padding:8px;text-align:center;">${d.category}</td>
-            <td style="padding:8px;text-align:right;font-weight:600;color:${color};">${sign}${d.amount.toLocaleString()}</td>
-            <td style="padding:8px;">${d.memo}</td>
-            <td style="padding:8px;text-align:center;font-size:0.75rem;color:var(--text-light);">${d.account}</td>
+            <td style="padding:8px;text-align:center;font-weight:600;color:${color};">${sign}${d.amount.toLocaleString()}</td>
+            <td style="padding:8px;text-align:center;">${d.memo}</td>
+            <td style="padding:8px;text-align:center;">${d.account}</td>
         </tr>`;
     });
     document.getElementById('ledgerTable').innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light);">거래 내역이 없습니다</td></tr>';
