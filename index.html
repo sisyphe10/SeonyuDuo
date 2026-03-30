@@ -1630,7 +1630,7 @@ async function loadYearCalendar() {
             html += '<div class="month-card-events">';
 
             if (monthEvents[m].length === 0) {
-                html += '<div class="month-card-empty">일정 없음</div>';
+                // empty month - leave blank
             } else {
                 monthEvents[m].forEach(ev => {
                     html += `<div class="month-evt">${ev.content}<span class="tooltip">${ev.month}/${ev.day} (${ev.dow})</span></div>`;
