@@ -667,9 +667,9 @@
 <div class="tab-nav">
     <button class="tab-btn active" onclick="switchTab('assets')">자산관리</button>
     <button class="tab-btn" onclick="switchTab('calendar')">캘린더</button>
+    <button class="tab-btn" onclick="switchTab('ledger')">가계부</button>
     <button class="tab-btn" onclick="switchTab('exercise')">운동</button>
     <button class="tab-btn" onclick="switchTab('meeting')">가족회의</button>
-    <button class="tab-btn" onclick="switchTab('ledger')">가계부</button>
 </div>
 
 <div class="content">
@@ -746,7 +746,7 @@
         <div class="card" style="padding:16px;margin-bottom:14px;">
             <div style="font-size:0.85rem;font-weight:700;margin-bottom:10px;">거래 입력</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
-                <input type="date" id="ldDate" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;">
+                <input type="text" id="ldDate" placeholder="YYYY-MM-DD" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;width:110px;text-align:center;">
                 <select id="ldType" onchange="updateLedgerCategories()" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;"></select>
                 <select id="ldCategory" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;"></select>
                 <input type="number" id="ldAmount" placeholder="금액" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;width:100px;">
