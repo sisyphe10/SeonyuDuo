@@ -1891,18 +1891,23 @@ async function loadLedger() {
                 }
             }
 
-            // I~L: 참조 데이터
-            if (row.c.length > 8) {
-                const refType = row.c[8] ? row.c[8].v : '';
-                const refCat = row.c[9] ? row.c[9].v : '';
-                const refAcc = row.c[10] ? row.c[10].v : '';
-                if (refType && refCat) {
-                    if (!ledgerRefCategories[refType]) ledgerRefCategories[refType] = [];
-                    if (!ledgerRefCategories[refType].includes(refCat)) ledgerRefCategories[refType].push(refCat);
-                    if (!ledgerRefTypes.includes(refType)) ledgerRefTypes.push(refType);
-                }
-                if (refAcc && !ledgerRefAccounts.includes(refAcc)) ledgerRefAccounts.push(refAcc);
+        });
+
+        // 카테고리 시트에서 참조 데이터 로드
+        const catUrl = sheetUrl('카테고리');
+        const catRes = await fetch(catUrl);
+        const catText = await catRes.text();
+        const catJson = JSON.parse(catText.substring(catText.indexOf('{'), catText.lastIndexOf('}') + 1));
+        catJson.table.rows.forEach(row => {
+            const refType = row.c[0] ? row.c[0].v : '';
+            const refCat = row.c[1] ? row.c[1].v : '';
+            const refAcc = row.c[2] ? row.c[2].v : '';
+            if (refType && refCat && refType !== '유형') {
+                if (!ledgerRefCategories[refType]) ledgerRefCategories[refType] = [];
+                if (!ledgerRefCategories[refType].includes(refCat)) ledgerRefCategories[refType].push(refCat);
+                if (!ledgerRefTypes.includes(refType)) ledgerRefTypes.push(refType);
             }
+            if (refAcc && refAcc !== '통장' && !ledgerRefAccounts.includes(refAcc)) ledgerRefAccounts.push(refAcc);
         });
 
         // 드롭다운 초기화
