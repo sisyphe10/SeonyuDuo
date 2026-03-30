@@ -458,6 +458,82 @@
             color: #555;
         }
 
+        /* Year Calendar */
+        .year-cal-section {
+            margin-bottom: 16px;
+        }
+        .year-cal-header {
+            text-align: center;
+            margin-bottom: 14px;
+        }
+        .year-cal-header h2 {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+        .year-cal-header .sub {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 2px;
+        }
+        .year-cal-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .month-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid var(--border);
+        }
+        .month-card-title {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--border);
+        }
+        .month-card-events {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .month-evt {
+            font-size: 0.8rem;
+            color: var(--text);
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: var(--peach);
+            cursor: default;
+            position: relative;
+        }
+        .month-evt:hover {
+            background: var(--accent-light);
+        }
+        .month-evt .tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: #fff;
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+            z-index: 10;
+            margin-bottom: 4px;
+        }
+        .month-evt:hover .tooltip { display: block; }
+        .month-card-empty {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            padding: 4px 0;
+        }
+
         /* D-Day Section */
         .dday-section {
             margin-bottom: 16px;
@@ -633,6 +709,7 @@
 
     <!-- ====== 캘린더 ====== -->
     <div id="tab-calendar" class="tab-content">
+        <div id="yearCalSection" class="year-cal-section"></div>
         <div id="ddaySection" class="dday-section"></div>
     </div>
 
@@ -1504,6 +1581,70 @@ async function loadCalendar() {
         ddayEvents = [];
     }
     renderDdayCards();
+    loadYearCalendar();
+}
+
+async function loadYearCalendar() {
+    const DOW = ['일','월','화','수','목','금','토'];
+    try {
+        const url = sheetUrl('캘린더');
+        const res = await fetch(url);
+        const text = await res.text();
+        const json = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
+        const rows = json.table.rows;
+
+        // 월별 이벤트 수집
+        const monthEvents = {};
+        for (let m = 1; m <= 12; m++) monthEvents[m] = [];
+
+        rows.forEach(row => {
+            const dateVal = row.c[0] ? row.c[0].v : null;
+            const content = row.c[2] ? row.c[2].v : '';
+            if (!dateVal || !content) return;
+
+            const match = dateVal.match(/Date\((\d+),(\d+),(\d+)\)/);
+            if (!match) return;
+
+            const year = parseInt(match[1]);
+            const month = parseInt(match[2]);
+            const day = parseInt(match[3]);
+            const dow = DOW[new Date(year, month - 1, day).getDay()];
+
+            monthEvents[month].push({
+                day: day,
+                dow: dow,
+                month: month,
+                content: content
+            });
+        });
+
+        let html = '<div class="year-cal-header">';
+        html += '<h2>2026</h2>';
+        html += '<div class="sub">병오년 (붉은 말)</div>';
+        html += '</div>';
+        html += '<div class="year-cal-grid">';
+
+        for (let m = 1; m <= 12; m++) {
+            html += '<div class="month-card">';
+            html += `<div class="month-card-title">${m}월</div>`;
+            html += '<div class="month-card-events">';
+
+            if (monthEvents[m].length === 0) {
+                html += '<div class="month-card-empty">일정 없음</div>';
+            } else {
+                monthEvents[m].forEach(ev => {
+                    html += `<div class="month-evt">${ev.content}<span class="tooltip">${ev.month}/${ev.day} (${ev.dow})</span></div>`;
+                });
+            }
+
+            html += '</div></div>';
+        }
+
+        html += '</div>';
+        document.getElementById('yearCalSection').innerHTML = html;
+    } catch (e) {
+        console.error('Year calendar load failed:', e);
+    }
 }
 
 function isDdayPrefix(s) { return s.startsWith('D-day |') || s.startsWith('D-day|'); }
