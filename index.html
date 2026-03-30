@@ -1606,7 +1606,7 @@ async function loadYearCalendar() {
             if (!match) return;
 
             const year = parseInt(match[1]);
-            const month = parseInt(match[2]);
+            const month = parseInt(match[2]) + 1;  // gviz month is 0-indexed
             const day = parseInt(match[3]);
             const dow = DOW[new Date(year, month - 1, day).getDay()];
 
