@@ -1570,8 +1570,19 @@ function renderDdayCards() {
     // 가까운 날짜순 정렬
     unique.sort((a, b) => a.date.localeCompare(b.date));
 
+    // 열 우선 배치: 위→아래, 좌→우 (3열)
+    const cols = 3;
+    const rows = Math.ceil(unique.length / cols);
+    const reordered = [];
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const idx = c * rows + r;
+            if (idx < unique.length) reordered.push(unique[idx]);
+        }
+    }
+
     let html = '<div class="dday-grid">';
-    unique.forEach(ev => {
+    reordered.forEach(ev => {
         const evMs = new Date(ev.date).getTime();
         const diffDays = Math.round((evMs - todayMs) / 86400000);
         let badge;
