@@ -461,6 +461,9 @@
         /* Year Calendar */
         .year-cal-section {
             margin-bottom: 16px;
+            background: #fff;
+            border-radius: 14px;
+            padding: 18px;
         }
         .year-cal-header {
             text-align: center;
@@ -482,10 +485,9 @@
             gap: 10px;
         }
         .month-card {
-            background: #fff;
+            background: transparent;
             border-radius: 12px;
             padding: 14px;
-            border: 1px solid var(--border);
         }
         .month-card-title {
             font-size: 0.9rem;
@@ -666,6 +668,7 @@
     <button class="tab-btn" onclick="switchTab('calendar')">캘린더</button>
     <button class="tab-btn" onclick="switchTab('exercise')">운동</button>
     <button class="tab-btn" onclick="switchTab('meeting')">가족회의</button>
+    <button class="tab-btn" onclick="switchTab('ledger')">가계부</button>
 </div>
 
 <div class="content">
@@ -725,6 +728,50 @@
         <div class="card">
             <div class="card-title">가족회의 기록</div>
             <div id="meeting-table"><div class="loading">데이터 로딩 중</div></div>
+        </div>
+    </div>
+
+    <!-- ====== 가계부 ====== -->
+    <div id="tab-ledger" class="tab-content">
+        <!-- 월 선택 -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <button onclick="ledgerPrevMonth()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:1rem;">◀</button>
+            <span id="ledgerMonthLabel" style="font-size:1.1rem;font-weight:800;flex:1;text-align:center;"></span>
+            <button onclick="ledgerNextMonth()" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:1rem;">▶</button>
+        </div>
+        <!-- 요약 카드 -->
+        <div id="ledgerSummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;"></div>
+        <!-- 입력 폼 -->
+        <div class="card" style="padding:16px;margin-bottom:14px;">
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:10px;">거래 입력</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+                <input type="date" id="ldDate" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;">
+                <select id="ldType" onchange="updateLedgerCategories()" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;"></select>
+                <select id="ldCategory" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;"></select>
+                <input type="number" id="ldAmount" placeholder="금액" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;width:100px;">
+                <input type="text" id="ldMemo" placeholder="메모" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;flex:1;min-width:80px;">
+                <select id="ldAccount" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;"></select>
+                <button onclick="addLedgerEntry()" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;">추가</button>
+            </div>
+        </div>
+        <!-- 거래 내역 -->
+        <div class="card" style="padding:16px;">
+            <div style="font-size:0.85rem;font-weight:700;margin-bottom:10px;">거래 내역</div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+                    <thead>
+                        <tr style="background:#fafafa;border-bottom:2px solid var(--border);">
+                            <th style="padding:8px;text-align:center;">날짜</th>
+                            <th style="padding:8px;text-align:center;">유형</th>
+                            <th style="padding:8px;text-align:center;">카테고리</th>
+                            <th style="padding:8px;text-align:right;">금액</th>
+                            <th style="padding:8px;text-align:left;">메모</th>
+                            <th style="padding:8px;text-align:center;">통장</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledgerTable"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -846,7 +893,7 @@ async function loadAllData() {
     }
     let alignments = {};
     try { alignments = await fetchAlignments(); } catch(e) {}
-    await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || []), loadGoals(), loadCalendar(), loadExercise()]);
+    await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || []), loadGoals(), loadCalendar(), loadExercise(), loadLedger()]);
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} KST`;
     document.getElementById('lastUpdated').textContent = 'Updated: ' + ts;
@@ -1787,6 +1834,174 @@ function renderCalGrid() {
         html += `<div class="${cls}"><div class="cal-d">${d}</div>${evHtml}</div>`;
     }
     document.getElementById('calGrid').innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+// 가계부
+// ═══════════════════════════════════════
+let ledgerData = [];
+let ledgerRefTypes = [];
+let ledgerRefCategories = {};
+let ledgerRefAccounts = [];
+let ledgerYear, ledgerMonth;
+
+function initLedger() {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    ledgerYear = now.getFullYear();
+    ledgerMonth = now.getMonth() + 1;
+    document.getElementById('ldDate').value = `${ledgerYear}-${String(ledgerMonth).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+initLedger();
+
+function ledgerPrevMonth() { ledgerMonth--; if (ledgerMonth < 1) { ledgerMonth = 12; ledgerYear--; } renderLedger(); }
+function ledgerNextMonth() { ledgerMonth++; if (ledgerMonth > 12) { ledgerMonth = 1; ledgerYear++; } renderLedger(); }
+
+async function loadLedger() {
+    try {
+        const url = sheetUrl('가계부');
+        const res = await fetch(url);
+        const text = await res.text();
+        const json = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
+        const rows = json.table.rows;
+        const cols = json.table.cols;
+
+        ledgerData = [];
+        ledgerRefTypes = [];
+        ledgerRefCategories = {};
+        ledgerRefAccounts = [];
+
+        rows.forEach(row => {
+            // A~F: 거래 데이터
+            const dateVal = row.c[0] ? row.c[0].v : null;
+            if (dateVal) {
+                const match = dateVal.match(/Date\((\d+),(\d+),(\d+)\)/);
+                if (match) {
+                    const y = parseInt(match[1]);
+                    const m = parseInt(match[2]) + 1;
+                    const d = parseInt(match[3]);
+                    ledgerData.push({
+                        date: `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+                        type: row.c[1] ? row.c[1].v : '',
+                        category: row.c[2] ? row.c[2].v : '',
+                        amount: row.c[3] ? parseFloat(row.c[3].v) : 0,
+                        memo: row.c[4] ? row.c[4].v : '',
+                        account: row.c[5] ? row.c[5].v : '',
+                    });
+                }
+            }
+
+            // I~L: 참조 데이터
+            if (row.c.length > 8) {
+                const refType = row.c[8] ? row.c[8].v : '';
+                const refCat = row.c[9] ? row.c[9].v : '';
+                const refAcc = row.c[10] ? row.c[10].v : '';
+                if (refType && refCat) {
+                    if (!ledgerRefCategories[refType]) ledgerRefCategories[refType] = [];
+                    if (!ledgerRefCategories[refType].includes(refCat)) ledgerRefCategories[refType].push(refCat);
+                    if (!ledgerRefTypes.includes(refType)) ledgerRefTypes.push(refType);
+                }
+                if (refAcc && !ledgerRefAccounts.includes(refAcc)) ledgerRefAccounts.push(refAcc);
+            }
+        });
+
+        // 드롭다운 초기화
+        const typeSelect = document.getElementById('ldType');
+        typeSelect.innerHTML = ledgerRefTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+        updateLedgerCategories();
+
+        const accSelect = document.getElementById('ldAccount');
+        accSelect.innerHTML = ledgerRefAccounts.map(a => `<option value="${a}">${a}</option>`).join('');
+
+        renderLedger();
+    } catch (e) {
+        console.error('Ledger load failed:', e);
+    }
+}
+
+function updateLedgerCategories() {
+    const type = document.getElementById('ldType').value;
+    const catSelect = document.getElementById('ldCategory');
+    const cats = ledgerRefCategories[type] || [];
+    catSelect.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function renderLedger() {
+    document.getElementById('ledgerMonthLabel').textContent = `${ledgerYear}년 ${ledgerMonth}월`;
+
+    const monthStr = `${ledgerYear}-${String(ledgerMonth).padStart(2,'0')}`;
+    const monthData = ledgerData.filter(d => d.date.startsWith(monthStr));
+
+    const income = monthData.filter(d => d.type === '수입').reduce((s, d) => s + d.amount, 0);
+    const expense = monthData.filter(d => d.type === '지출').reduce((s, d) => s + d.amount, 0);
+    const net = income - expense;
+
+    function fmt(v) { return Math.abs(v).toLocaleString(); }
+
+    document.getElementById('ledgerSummary').innerHTML = `
+        <div style="background:#fff;border-radius:10px;padding:14px;border-left:4px solid var(--green);">
+            <div style="font-size:0.75rem;color:var(--text-light);font-weight:600;">수입</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--green);">+${fmt(income)}</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:14px;border-left:4px solid var(--red);">
+            <div style="font-size:0.75rem;color:var(--text-light);font-weight:600;">지출</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--red);">-${fmt(expense)}</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:14px;border-left:4px solid var(--blue);">
+            <div style="font-size:0.75rem;color:var(--text-light);font-weight:600;">순수익</div>
+            <div style="font-size:1.1rem;font-weight:800;color:${net >= 0 ? 'var(--green)' : 'var(--red)'};">${net >= 0 ? '+' : '-'}${fmt(net)}</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:14px;border-left:4px solid var(--text-light);">
+            <div style="font-size:0.75rem;color:var(--text-light);font-weight:600;">거래</div>
+            <div style="font-size:1.1rem;font-weight:800;">${monthData.length}건</div>
+        </div>
+    `;
+
+    // 테이블
+    let html = '';
+    monthData.sort((a, b) => b.date.localeCompare(a.date));
+    monthData.forEach(d => {
+        const color = d.type === '수입' ? 'var(--green)' : 'var(--red)';
+        const sign = d.type === '수입' ? '+' : '-';
+        html += `<tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:8px;text-align:center;">${d.date.slice(5)}</td>
+            <td style="padding:8px;text-align:center;color:${color};font-weight:600;">${d.type}</td>
+            <td style="padding:8px;text-align:center;">${d.category}</td>
+            <td style="padding:8px;text-align:right;font-weight:600;color:${color};">${sign}${d.amount.toLocaleString()}</td>
+            <td style="padding:8px;">${d.memo}</td>
+            <td style="padding:8px;text-align:center;font-size:0.75rem;color:var(--text-light);">${d.account}</td>
+        </tr>`;
+    });
+    document.getElementById('ledgerTable').innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light);">거래 내역이 없습니다</td></tr>';
+}
+
+async function addLedgerEntry() {
+    const date = document.getElementById('ldDate').value;
+    const type = document.getElementById('ldType').value;
+    const category = document.getElementById('ldCategory').value;
+    const amount = document.getElementById('ldAmount').value;
+    const memo = document.getElementById('ldMemo').value;
+    const account = document.getElementById('ldAccount').value;
+
+    if (!date || !amount) { alert('날짜와 금액을 입력하세요.'); return; }
+
+    try {
+        const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/가계부!A:F:append?valueInputOption=USER_ENTERED&key=${GOOGLE_API_KEY}`;
+        const res = await fetch(appendUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: [[date, type, category, parseFloat(amount), memo, account]] })
+        });
+        if (res.ok) {
+            document.getElementById('ldAmount').value = '';
+            document.getElementById('ldMemo').value = '';
+            await loadLedger();
+        } else {
+            const err = await res.text();
+            alert('저장 실패: ' + err);
+        }
+    } catch (e) {
+        alert('저장 실패: ' + e.message);
+    }
 }
 
 </script>
