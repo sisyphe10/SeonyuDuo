@@ -1441,7 +1441,6 @@ function getLunarEvents(year) {
 let ddayEvents = [];
 
 async function loadCalendar() {
-    document.getElementById('calMonthLabel').textContent = `${calYear}년 ${calMonth}월`;
 
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
     const fromCal = new Date(calYear, calMonth - 1, 1);
@@ -1499,7 +1498,6 @@ async function loadCalendar() {
         ddayEvents = [];
     }
     renderDdayCards();
-    renderCalGrid();
 }
 
 function isDdayPrefix(s) { return s.startsWith('D-day |') || s.startsWith('D-day|'); }
