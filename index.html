@@ -492,8 +492,6 @@
             font-weight: 800;
             color: var(--text);
             margin-bottom: 8px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid var(--border);
         }
         .month-card-events {
             display: flex;
@@ -505,12 +503,12 @@
             color: var(--text);
             padding: 4px 8px;
             border-radius: 6px;
-            background: var(--peach);
+            background: transparent;
             cursor: default;
             position: relative;
         }
         .month-evt:hover {
-            background: var(--accent-light);
+            background: #f0f0f0;
         }
         .month-evt .tooltip {
             display: none;
@@ -1620,7 +1618,7 @@ async function loadYearCalendar() {
 
         let html = '<div class="year-cal-header">';
         html += '<h2>2026</h2>';
-        html += '<div class="sub">병오년 (붉은 말)</div>';
+        html += '<div class="sub" style="color:var(--text);">병오년 🐴</div>';
         html += '</div>';
         html += '<div class="year-cal-grid">';
 
