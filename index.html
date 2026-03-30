@@ -1617,8 +1617,7 @@ async function loadYearCalendar() {
         });
 
         let html = '<div class="year-cal-header">';
-        html += '<h2>2026</h2>';
-        html += '<div class="sub" style="color:var(--text);">병오년 🐴</div>';
+        html += '<h2>2026년 <span style="font-size:0.85em;font-weight:600;color:var(--text);">병오년 🐴</span></h2>';
         html += '</div>';
         html += '<div class="year-cal-grid">';
 
@@ -1631,7 +1630,7 @@ async function loadYearCalendar() {
                 // empty month - leave blank
             } else {
                 monthEvents[m].forEach(ev => {
-                    html += `<div class="month-evt">${ev.content}<span class="tooltip">${ev.month}/${ev.day} (${ev.dow})</span></div>`;
+                    html += `<div class="month-evt">• ${ev.content}<span class="tooltip">${ev.month}/${ev.day} (${ev.dow})</span></div>`;
                 });
             }
 
