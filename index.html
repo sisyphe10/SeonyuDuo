@@ -1406,7 +1406,35 @@ async function loadMeeting(aligns) {
             document.getElementById('meeting-table').innerHTML = emptyState('회의 기록이 없습니다', '가족회의 시트에 데이터를 입력하세요');
             return;
         }
-        document.getElementById('meeting-table').innerHTML = renderSheet(cols, rows, aligns);
+        const doneIdx = cols.indexOf('완료 여부');
+        const dateIdx = cols.indexOf('날짜');
+        const dateSorter = (a, b) => (a[dateIdx] || '').localeCompare(b[dateIdx] || '');
+
+        if (doneIdx === -1) {
+            document.getElementById('meeting-table').innerHTML = renderSheet(cols, rows, aligns);
+            return;
+        }
+
+        const pending = rows.filter(r => {
+            const v = String(r[doneIdx] ?? '').toUpperCase().trim();
+            return v !== 'TRUE' && r[doneIdx] !== true;
+        }).sort(dateSorter);
+
+        const done = rows.filter(r => {
+            const v = String(r[doneIdx] ?? '').toUpperCase().trim();
+            return v === 'TRUE' || r[doneIdx] === true;
+        }).sort(dateSorter);
+
+        let html = '';
+        if (pending.length > 0) {
+            html += '<div style="font-size:0.85rem;font-weight:700;color:#222;margin-bottom:8px">진행 중</div>';
+            html += renderSheet(cols, pending, aligns);
+        }
+        if (done.length > 0) {
+            html += '<div style="font-size:0.85rem;font-weight:700;color:#999;margin:20px 0 8px 0">완료</div>';
+            html += renderSheet(cols, done, aligns);
+        }
+        document.getElementById('meeting-table').innerHTML = html;
     } catch (e) {
         document.getElementById('meeting-table').innerHTML = errorState('가족회의 데이터를 불러올 수 없습니다');
     }
