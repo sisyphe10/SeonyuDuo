@@ -955,8 +955,8 @@ function renderSheet(cols, rows, aligns) {
     const sorted = rows;
     let html = '<table class="data-table"><thead><tr>';
     headers.forEach((h, i) => {
-        const borderR = (i === memoIdx) ? 'border-right:2px solid #ccc;' : '';
-        html += `<th style="text-align:${aligns[i] || 'center'};${borderR}">${h}</th>`;
+        const bg = isAmtCol[i] ? 'background:#f5f5f5;' : '';
+        html += `<th style="text-align:${aligns[i] || 'center'};${bg}">${h}</th>`;
     });
     html += '</tr></thead><tbody>';
     let prevOwner = null;
@@ -971,10 +971,10 @@ function renderSheet(cols, rows, aligns) {
         headers.forEach((h, i) => {
             const ws = ['내용','결정사항','메모'].includes(h) ? 'white-space:normal;max-width:250px;' : '';
             const bodyAlign = (h === '내용') ? 'left' : (aligns[i] || 'center');
-            const borderR = (i === memoIdx) ? 'border-right:2px solid #ccc;' : '';
+            const bg = isAmtCol[i] ? 'background:#fafafa;' : '';
             // 월별 금액 컬럼이면 콤마 포맷
             const cellVal = isAmtCol[i] ? formatMoney(r[i]) : formatCell(r[i], h);
-            html += `<td style="${ws}text-align:${bodyAlign};${borderR}">${cellVal}</td>`;
+            html += `<td style="${ws}text-align:${bodyAlign};${bg}">${cellVal}</td>`;
         });
         html += '</tr>';
     });
