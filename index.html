@@ -986,11 +986,11 @@ function filterBalanceSheet() {
     if (netDateEl) netDateEl.textContent = latestDateStr;
 }
 
-function renderLineChart(monthlyData) {
+function renderLineChart(monthlyData, labels) {
     const ctx = document.getElementById('chartLine');
     if (!ctx) return;
     if (lineChartInstance) lineChartInstance.destroy();
-    const months = ['2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const months = labels || ['2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
     const data = monthlyData;
     lineChartInstance = new Chart(ctx, {
         type: 'line',
@@ -1044,11 +1044,11 @@ function renderLineChart(monthlyData) {
     });
 }
 
-function renderBarChart(monthlyData) {
+function renderBarChart(monthlyData, labels) {
     const ctx = document.getElementById('chartBar');
     if (!ctx) return;
     if (barChartInstance) barChartInstance.destroy();
-    const months = ['2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const months = labels || ['2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
     // 월별 증감 계산: 2월은 그대로(첫달), 3월부터는 전월 대비 차이
     const changes = monthlyData.map((val, i) => {
         if (val === null) return null;
@@ -1199,19 +1199,16 @@ function renderPieChart(allAssets) {
 }
 
 // ── 행을 자산/비상장/부채로 분류하는 헬퍼 ──
-function classifyRows(rowSet, cols) {
-    const amtIdx = cols.indexOf('금액');
-    const typeIdx = cols.indexOf('구분');
-    const nameIdx = cols.indexOf('자산명');
-    const memoIdx = cols.indexOf('메모');
-    const ownerIdx = cols.indexOf('담당자');
+// amtColIdx: 월별 금액이 있는 컬럼 인덱스
+function classifyRows(dataRows, headerRow, amtColIdx) {
+    const ownerI = 0, typeI = 1, nameI = 2, memoI = 3;
     const listed = [], unlisted = [], debts = [];
-    rowSet.forEach(r => {
-        const amt = Number(r[amtIdx]) || 0;
-        const type = typeIdx !== -1 ? (r[typeIdx] || '') : '';
-        const name = nameIdx !== -1 ? (r[nameIdx] || '') : '';
-        const memo = memoIdx !== -1 ? (r[memoIdx] || '') : '';
-        const owner = ownerIdx !== -1 ? (r[ownerIdx] || '') : '';
+    dataRows.forEach(r => {
+        const amt = Number(r[amtColIdx]) || 0;
+        const type = r[typeI] || '';
+        const name = r[nameI] || '';
+        const memo = r[memoI] || '';
+        const owner = r[ownerI] || '';
         const nameMemo = memo ? `${name} - ${memo}` : name;
         const display = owner ? `${owner} | ${nameMemo}` : nameMemo;
         if (type === '대출') debts.push({ display, nameMemo, amt, owner, name });
@@ -1304,51 +1301,52 @@ function renderBalanceSheet(listed, unlisted, debts, filter) {
     document.getElementById('assets-balance-sheet').innerHTML = bsHtml;
 }
 
-// ── 자산관리 ──
+// ── Excel serial date → {year, month} ──
+function serialToYM(serial) {
+    const d = new Date((serial - 25569) * 86400000);
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}
+
+// ── 자산관리 (새 구조: 행=자산, 열=월별 금액) ──
 async function loadAssets(aligns) {
     try {
         const { cols, rows } = await fetchSheet(SHEET_NAMES.assets);
-        if (rows.length === 0) {
-            document.getElementById('assets-table').innerHTML = emptyState('자산 데이터가 없습니다', '자산 시트에 데이터를 입력하세요');
+        if (rows.length < 2) {
+            document.getElementById('assets-table').innerHTML = emptyState('자산 데이터가 없습니다', '자산관리 시트에 데이터를 입력하세요');
             return;
         }
 
-        const amtIdx = cols.indexOf('금액');
-        if (amtIdx === -1) { document.getElementById('assets-table').innerHTML = renderSheet(cols, rows, aligns); return; }
+        // rows[0] = 헤더행: [담당자, 구분, 자산명, 메모, 46081(26.02), 46112(26.03), ...]
+        const headerRow = rows[0];
+        const dataRows = rows.slice(1);
+        const META_COLS = 4; // 담당자, 구분, 자산명, 메모
 
-        // 월별 그룹핑
-        const dateIdx = cols.indexOf('날짜');
-        const monthMap = {};  // 'YYYY-MM' → [rows]
-        rows.forEach(r => {
-            const d = parseDate(r[dateIdx]);
-            const key = d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : 'unknown';
-            if (!monthMap[key]) monthMap[key] = [];
-            monthMap[key].push(r);
-        });
-        const monthKeys = Object.keys(monthMap).filter(k => k !== 'unknown').sort();
-        const latestMonth = monthKeys[monthKeys.length - 1];
-        const latestRows = monthMap[latestMonth] || rows;
+        // 월별 컬럼 인덱스와 라벨 추출 (4번째 이후, 값이 있는 컬럼만)
+        const monthCols = []; // [{idx, serial, year, month, label}]
+        for (let i = META_COLS; i < headerRow.length; i++) {
+            const v = headerRow[i];
+            if (v && typeof v === 'number' && v > 40000) {
+                const ym = serialToYM(v);
+                monthCols.push({ idx: i, serial: v, year: ym.year, month: ym.month, label: `${ym.year % 100}년 ${ym.month}월` });
+            }
+        }
+        if (monthCols.length === 0) {
+            document.getElementById('assets-table').innerHTML = emptyState('월별 데이터가 없습니다', '시트에 날짜 컬럼을 추가하세요');
+            return;
+        }
 
-        // 최신 월 기준 데이터로 대차대조표/파이차트
-        const latest = classifyRows(latestRows, cols);
-        const { netWorth, totalListed, totalUnlisted, totalAsset, totalDebt } = calcNetWorth(latest);
+        // 최신 월 기준 대차대조표
+        const latestCol = monthCols[monthCols.length - 1];
+        const latest = classifyRows(dataRows, headerRow, latestCol.idx);
         const { listed, unlisted, debts } = latest;
+        latestDateStr = latestCol.label;
 
         // 순자산 추이 (월별)
-        const lineData = new Array(11).fill(null);  // 2월~12월
-        monthKeys.forEach(key => {
-            const m = parseInt(key.split('-')[1]);
-            if (m >= 2 && m <= 12) {
-                const c = classifyRows(monthMap[key], cols);
-                const nw = calcNetWorth(c);
-                lineData[m - 2] = nw.netWorth;
-            }
+        const lineLabels = monthCols.map(mc => `${mc.month}월`);
+        const lineData = monthCols.map(mc => {
+            const c = classifyRows(dataRows, headerRow, mc.idx);
+            return calcNetWorth(c).netWorth;
         });
-
-        // 기준 월 표시
-        const latestY = parseInt(latestMonth.split('-')[0]) % 100;
-        const latestM = parseInt(latestMonth.split('-')[1]);
-        latestDateStr = `${latestY}년 ${latestM}월`;
 
         const ownerSort = (a, b) => {
             if (a.owner !== b.owner) return a.owner === 'TS' ? -1 : 1;
@@ -1365,12 +1363,19 @@ async function loadAssets(aligns) {
 
         // 차트 렌더링
         pieAllAssets = [...listed, ...unlisted];
-        renderLineChart(lineData);
-        renderBarChart(lineData);
+        renderLineChart(lineData, lineLabels);
+        renderBarChart(lineData, lineLabels);
         document.getElementById('pieOwnerFilter').value = 'all';
         renderPieChart(pieAllAssets);
 
-        document.getElementById('assets-table').innerHTML = renderSheet(cols, rows, aligns);
+        // 하단 테이블: 헤더 재구성
+        const tableCols = ['담당자', '구분', '자산명', '메모', ...monthCols.map(mc => mc.label)];
+        const tableRows = dataRows.map(r => {
+            const meta = r.slice(0, META_COLS);
+            const amts = monthCols.map(mc => r[mc.idx]);
+            return [...meta, ...amts];
+        });
+        document.getElementById('assets-table').innerHTML = renderSheet(tableCols, tableRows, aligns);
     } catch (e) {
         console.error('loadAssets error:', e);
         document.getElementById('assets-table').innerHTML = errorState('자산 데이터를 불러올 수 없습니다: ' + e.message);
