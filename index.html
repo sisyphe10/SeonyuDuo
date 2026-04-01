@@ -952,7 +952,8 @@ function renderSheet(cols, rows, aligns) {
     const sorted = rows;
     let html = '<table class="data-table"><thead><tr>';
     headers.forEach((h, i) => {
-        html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
+        const thW = ['날짜','요일','담당자','장소'].includes(h) ? 'white-space:nowrap;width:1%;' : (h === '내용' ? 'width:50%;' : '');
+        html += `<th style="text-align:${aligns[i] || 'center'};${thW}">${h}</th>`;
     });
     html += '</tr></thead><tbody>';
     let prevOwner = null;
@@ -965,7 +966,8 @@ function renderSheet(cols, rows, aligns) {
         prevOwner = curOwner;
         html += '<tr>';
         headers.forEach((h, i) => {
-            const ws = ['내용','결정사항','메모'].includes(h) ? 'white-space:normal;max-width:250px;' : '';
+            const isWrap = ['내용','결정사항','메모'].includes(h);
+            const ws = isWrap ? 'white-space:pre-wrap;word-break:break-word;' : 'white-space:nowrap;';
             const bodyAlign = (h === '내용') ? 'left' : (aligns[i] || 'center');
             const bg = isAmtCol[i] ? 'background:#f8f8f8;' : '';
             // 월별 금액 컬럼이면 콤마 포맷
