@@ -1466,6 +1466,7 @@ async function loadGoals() {
         const ownerIdx = cols.indexOf('담당자');
         const goalIdx = cols.indexOf('목표');
         const periodIdx = cols.indexOf('기간');
+        const doneIdx = cols.indexOf('달성 여부');
 
         const yearly = [];
         const monthly = [];
@@ -1473,11 +1474,12 @@ async function loadGoals() {
             const owner = String(r[ownerIdx] || '').trim();
             const goal = String(r[goalIdx] || '').trim();
             const period = String(r[periodIdx] || '').trim();
+            const done = doneIdx !== -1 && (r[doneIdx] === true || String(r[doneIdx] ?? '').toUpperCase().trim() === 'TRUE');
             if (!owner || !goal) return;
             if (period.includes('년')) {
-                yearly.push({ owner, goal, period });
+                yearly.push({ owner, goal, period, done });
             } else {
-                monthly.push({ owner, goal, period });
+                monthly.push({ owner, goal, period, done });
             }
         });
 
@@ -1489,7 +1491,9 @@ async function loadGoals() {
             ['Duo', 'TS', 'NY'].forEach(owner => {
                 const ownerItems = items.filter(x => x.owner === owner);
                 ownerItems.forEach(g => {
-                    html += `<div class="goal-item"><span class="goal-badge ${owner.toLowerCase()}">${owner}</span><span>${g.goal}</span></div>`;
+                    const check = g.done ? '<span style="color:var(--dm-coral);margin-right:4px">&#10003;</span>' : '';
+                    const strike = g.done ? 'text-decoration:line-through;color:#999;' : '';
+                    html += `<div class="goal-item"><span class="goal-badge ${owner.toLowerCase()}">${owner}</span><span style="${strike}">${check}${g.goal}</span></div>`;
                 });
             });
             html += `</div>`;
@@ -1511,7 +1515,9 @@ async function loadGoals() {
                 ['Duo', 'TS', 'NY'].forEach(owner => {
                     const ownerItems = items.filter(x => x.period === month && x.owner === owner);
                     ownerItems.forEach(g => {
-                        html += `<div class="goal-item"><span class="goal-badge ${g.owner.toLowerCase()}">${g.owner}</span><span>${g.goal}</span></div>`;
+                        const check = g.done ? '<span style="color:var(--dm-coral);margin-right:4px">&#10003;</span>' : '';
+                        const strike = g.done ? 'text-decoration:line-through;color:#999;' : '';
+                        html += `<div class="goal-item"><span class="goal-badge ${g.owner.toLowerCase()}">${g.owner}</span><span style="${strike}">${check}${g.goal}</span></div>`;
                     });
                 });
             });
