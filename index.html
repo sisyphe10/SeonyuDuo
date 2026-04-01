@@ -945,18 +945,36 @@ function renderSheet(cols, rows, aligns) {
     while (colCount > 0 && !cols[colCount - 1]) colCount--;
     const headers = cols.slice(0, colCount);
 
+    // 메모 컬럼 인덱스 (오른쪽에 구분선)
+    const memoIdx = headers.indexOf('메모');
+    // 담당자 컬럼 인덱스 (담당자 변경 시 구분선)
+    const ownerIdx = headers.indexOf('담당자');
+    // 월별 금액 컬럼 판별 (메모 이후 컬럼)
+    const isAmtCol = headers.map((h, i) => i > memoIdx && memoIdx !== -1 && h && h.includes('월'));
+
     const sorted = rows;
     let html = '<table class="data-table"><thead><tr>';
     headers.forEach((h, i) => {
-        html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
+        const borderR = (i === memoIdx) ? 'border-right:2px solid #ccc;' : '';
+        html += `<th style="text-align:${aligns[i] || 'center'};${borderR}">${h}</th>`;
     });
     html += '</tr></thead><tbody>';
+    let prevOwner = null;
     sorted.forEach(r => {
+        const curOwner = ownerIdx !== -1 ? (r[ownerIdx] || '') : '';
+        // 담당자 변경 시 구분선 행 삽입
+        if (prevOwner !== null && curOwner && curOwner !== prevOwner) {
+            html += `<tr><td colspan="${headers.length}" style="padding:0;border-bottom:2px solid #bbb;"></td></tr>`;
+        }
+        prevOwner = curOwner;
         html += '<tr>';
         headers.forEach((h, i) => {
             const ws = ['내용','결정사항','메모'].includes(h) ? 'white-space:normal;max-width:250px;' : '';
             const bodyAlign = (h === '내용') ? 'left' : (aligns[i] || 'center');
-            html += `<td style="${ws}text-align:${bodyAlign}">${formatCell(r[i], h)}</td>`;
+            const borderR = (i === memoIdx) ? 'border-right:2px solid #ccc;' : '';
+            // 월별 금액 컬럼이면 콤마 포맷
+            const cellVal = isAmtCol[i] ? formatMoney(r[i]) : formatCell(r[i], h);
+            html += `<td style="${ws}text-align:${bodyAlign};${borderR}">${cellVal}</td>`;
         });
         html += '</tr>';
     });
