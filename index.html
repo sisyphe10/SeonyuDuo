@@ -769,6 +769,7 @@
                             <th style="padding:8px;text-align:right;">금액</th>
                             <th style="padding:8px;text-align:center;">메모</th>
                             <th style="padding:8px;text-align:center;">통장</th>
+                            <th style="padding:8px;width:36px;"></th>
                         </tr>
                     </thead>
                     <tbody id="ledgerTable"></tbody>
@@ -1943,6 +1944,7 @@ async function loadLedger() {
                         amount: row.c[3] ? parseFloat(row.c[3].v) : 0,
                         memo: row.c[4] ? row.c[4].v : '',
                         account: row.c[5] ? row.c[5].v : '',
+                        rowIdx: ledgerData.length + 1,  // 스프레드시트 행 번호 (1-indexed, 헤더 제외)
                     });
                 }
             }
@@ -2031,9 +2033,50 @@ function renderLedger() {
             <td style="padding:8px;text-align:center;font-weight:600;color:${color};">${sign}${d.amount.toLocaleString()}</td>
             <td style="padding:8px;text-align:center;">${d.memo}</td>
             <td style="padding:8px;text-align:center;">${d.account}</td>
+            <td style="padding:4px;text-align:center;"><button onclick="deleteLedgerEntry(${d.rowIdx})" style="background:none;border:none;cursor:pointer;font-size:0.9rem;opacity:0.4;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.4">&#128465;</td>
         </tr>`;
     });
-    document.getElementById('ledgerTable').innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light);">거래 내역이 없습니다</td></tr>';
+    document.getElementById('ledgerTable').innerHTML = html || '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-light);">거래 내역이 없습니다</td></tr>';
+}
+
+const LEDGER_SHEET_ID = 1246732618;  // 가계부 시트 gid
+
+async function deleteLedgerEntry(rowIdx) {
+    if (!confirm('이 거래를 삭제하시겠습니까?')) return;
+    try {
+        var token = await getAccessToken();
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`;
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({
+                requests: [{
+                    deleteDimension: {
+                        range: { sheetId: LEDGER_SHEET_ID, dimension: 'ROWS', startIndex: rowIdx, endIndex: rowIdx + 1 }
+                    }
+                }]
+            })
+        });
+        if (res.ok) {
+            await loadLedger();
+        } else if (res.status === 401) {
+            gAccessToken = null;
+            token = await getAccessToken();
+            const retry = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({
+                    requests: [{ deleteDimension: { range: { sheetId: LEDGER_SHEET_ID, dimension: 'ROWS', startIndex: rowIdx, endIndex: rowIdx + 1 } } }]
+                })
+            });
+            if (retry.ok) await loadLedger();
+            else alert('삭제 실패: ' + await retry.text());
+        } else {
+            alert('삭제 실패: ' + await res.text());
+        }
+    } catch (e) {
+        alert('삭제 실패: ' + e.message);
+    }
 }
 
 // Google OAuth 토큰 관리
