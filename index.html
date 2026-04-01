@@ -328,7 +328,7 @@
         .bs-group-title {
             font-size: 0.72rem;
             font-weight: 700;
-            color: var(--dm-text2);
+            color: #222;
             margin-bottom: 6px;
             letter-spacing: 1px;
         }
@@ -955,8 +955,7 @@ function renderSheet(cols, rows, aligns) {
     const sorted = rows;
     let html = '<table class="data-table"><thead><tr>';
     headers.forEach((h, i) => {
-        const bg = isAmtCol[i] ? 'background:#f5f5f5;' : '';
-        html += `<th style="text-align:${aligns[i] || 'center'};${bg}">${h}</th>`;
+        html += `<th style="text-align:${aligns[i] || 'center'}">${h}</th>`;
     });
     html += '</tr></thead><tbody>';
     let prevOwner = null;
@@ -971,7 +970,7 @@ function renderSheet(cols, rows, aligns) {
         headers.forEach((h, i) => {
             const ws = ['내용','결정사항','메모'].includes(h) ? 'white-space:normal;max-width:250px;' : '';
             const bodyAlign = (h === '내용') ? 'left' : (aligns[i] || 'center');
-            const bg = isAmtCol[i] ? 'background:#fafafa;' : '';
+            const bg = isAmtCol[i] ? 'background:#f8f8f8;' : '';
             // 월별 금액 컬럼이면 콤마 포맷
             const cellVal = isAmtCol[i] ? formatMoney(r[i]) : formatCell(r[i], h);
             html += `<td style="${ws}text-align:${bodyAlign};${bg}">${cellVal}</td>`;
@@ -1049,12 +1048,12 @@ function renderLineChart(monthlyData, labels) {
                             return v.toLocaleString();
                         },
                         font: { size: 11 },
-                        color: '#999'
+                        color: '#222'
                     },
                     grid: { color: '#F0F0F0' }
                 },
                 x: {
-                    ticks: { font: { size: 11 }, color: '#999' },
+                    ticks: { font: { size: 11 }, color: '#222' },
                     grid: { display: false }
                 }
             }
@@ -1130,12 +1129,12 @@ function renderBarChart(monthlyData, labels) {
                             return v.toLocaleString();
                         },
                         font: { size: 11 },
-                        color: '#999'
+                        color: '#222'
                     },
                     grid: { color: '#F0F0F0' }
                 },
                 x: {
-                    ticks: { font: { size: 11 }, color: '#999' },
+                    ticks: { font: { size: 11 }, color: '#222' },
                     grid: { display: false }
                 }
             }
@@ -1202,7 +1201,7 @@ function renderPieChart(allAssets) {
                 },
                 datalabels: {
                     color: '#fff',
-                    font: { size: 11, weight: 'bold' },
+                    font: { size: 13, weight: 'bold' },
                     textAlign: 'center',
                     formatter: (v, ctx) => {
                         const pct = total > 0 ? ((v / total) * 100).toFixed(1) : 0;
