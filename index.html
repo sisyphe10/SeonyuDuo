@@ -895,9 +895,6 @@ async function loadAllData() {
     let alignments = {};
     try { alignments = await fetchAlignments(); } catch(e) {}
     await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || []), loadGoals(), loadCalendar(), loadExercise(), loadLedger()]);
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
-    const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} KST`;
-    document.getElementById('lastUpdated').textContent = 'Updated: ' + ts;
 }
 
 function showConfigBanner() {
