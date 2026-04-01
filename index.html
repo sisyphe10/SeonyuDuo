@@ -6,6 +6,7 @@
     <title>선유듀오</title>
     <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap' rel='stylesheet'>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/korean-lunar-calendar@0.3.6/dist/korean-lunar-calendar.min.js"></script>
     <style>
@@ -2035,6 +2036,34 @@ function renderLedger() {
     document.getElementById('ledgerTable').innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--text-light);">거래 내역이 없습니다</td></tr>';
 }
 
+// Google OAuth 토큰 관리
+const OAUTH_CLIENT_ID = '325538815131-f6tu9mqroutprrvi2gaqjrrqt3q38m16.apps.googleusercontent.com';
+const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+let gAccessToken = null;
+let gTokenClient = null;
+
+function initTokenClient() {
+    if (gTokenClient) return;
+    gTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: OAUTH_CLIENT_ID,
+        scope: SHEETS_SCOPE,
+        callback: () => {},
+    });
+}
+
+function getAccessToken() {
+    return new Promise((resolve, reject) => {
+        initTokenClient();
+        gTokenClient.callback = (resp) => {
+            if (resp.error) { reject(new Error(resp.error)); return; }
+            gAccessToken = resp.access_token;
+            resolve(gAccessToken);
+        };
+        if (gAccessToken) { resolve(gAccessToken); return; }
+        gTokenClient.requestAccessToken({ prompt: '' });
+    });
+}
+
 async function addLedgerEntry() {
     const date = document.getElementById('ldDate').value;
     const type = document.getElementById('ldType').value;
@@ -2046,19 +2075,30 @@ async function addLedgerEntry() {
     if (!date || !amount) { alert('날짜와 금액을 입력하세요.'); return; }
 
     try {
-        const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/가계부!A:F:append?valueInputOption=USER_ENTERED&key=${GOOGLE_API_KEY}`;
+        var token = await getAccessToken();
+        const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('가계부!A:F')}:append?valueInputOption=USER_ENTERED`;
         const res = await fetch(appendUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
             body: JSON.stringify({ values: [[date, type, category, parseFloat(amount), memo, account]] })
         });
         if (res.ok) {
             document.getElementById('ldAmount').value = '';
             document.getElementById('ldMemo').value = '';
             await loadLedger();
+        } else if (res.status === 401) {
+            // 토큰 만료, 재인증
+            gAccessToken = null;
+            token = await getAccessToken();
+            const retry = await fetch(appendUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ values: [[date, type, category, parseFloat(amount), memo, account]] })
+            });
+            if (retry.ok) { document.getElementById('ldAmount').value = ''; document.getElementById('ldMemo').value = ''; await loadLedger(); }
+            else { alert('저장 실패: ' + await retry.text()); }
         } else {
-            const err = await res.text();
-            alert('저장 실패: ' + err);
+            alert('저장 실패: ' + await res.text());
         }
     } catch (e) {
         alert('저장 실패: ' + e.message);
