@@ -47,6 +47,11 @@
             min-height: 100vh;
         }
 
+        /* 모든 요소(폼 컨트롤 포함) Pretendard 강제 — 한글/영어/숫자 공통 */
+        *, input, button, select, textarea, option {
+            font-family: 'Pretendard Variable', Pretendard, system-ui, -apple-system, sans-serif;
+        }
+
         /* ── Password Overlay ── */
         .pw-overlay {
             position: fixed; inset: 0;
@@ -156,6 +161,51 @@
 
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+
+        /* ── Assets sub-sidebar (WRAP-style pills) ── */
+        .assets-layout { display: flex; gap: 16px; align-items: flex-start; }
+        .assets-sidebar {
+            width: 140px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 64px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            background: #FFFAF9;
+            border: 1.5px solid var(--accent-light);
+            border-radius: 16px;
+            padding: 14px 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .assets-sidebar a {
+            display: block;
+            padding: 11px 11px;
+            color: #444;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 999px;
+            border: 1.5px solid transparent;
+            transition: all 0.12s;
+            text-align: center;
+            cursor: pointer;
+        }
+        .assets-sidebar a:hover { background: #fff; color: var(--accent); border-color: var(--accent); }
+        .assets-sidebar a.active { background: #fff; color: var(--accent); border-color: var(--accent); }
+        .assets-main { flex: 1; min-width: 0; }
+        .assets-sub { display: none; }
+        .assets-sub.active { display: block; }
+        @media (max-width: 600px) {
+            .assets-layout { flex-direction: column; }
+            .assets-sidebar {
+                width: 100%;
+                flex-direction: row;
+                overflow-x: auto;
+                position: static;
+            }
+            .assets-sidebar a { flex: 1; white-space: nowrap; }
+        }
 
         .card {
             background: var(--card);
@@ -493,11 +543,8 @@
             border: 1px solid #bbb;
         }
         .month-card.is-current {
-            background: var(--peach);
+            background: #FFFAF9;
             border: 2px solid var(--accent);
-        }
-        .month-card.is-current .month-card-title {
-            color: var(--accent);
         }
         .month-card-title {
             font-size: 0.9rem;
@@ -688,6 +735,14 @@
 
     <!-- ====== 자산관리 ====== -->
     <div id="tab-assets" class="tab-content">
+      <div class="assets-layout">
+        <nav class="assets-sidebar">
+            <a class="active" onclick="switchAssetsSub('overview', this)">개요</a>
+            <a onclick="switchAssetsSub('balance', this)">대차대조표</a>
+            <a onclick="switchAssetsSub('detail', this)">세부내역</a>
+        </nav>
+        <div class="assets-main">
+        <div id="assets-sub-overview" class="assets-sub active">
         <div id="assets-summary"></div>
         <div id="assets-charts" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
             <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:12px">
@@ -714,11 +769,18 @@
                 <canvas id="chartPie"></canvas>
             </div>
         </div>
+        </div><!-- /assets-sub-overview -->
+        <div id="assets-sub-balance" class="assets-sub">
         <div id="assets-balance-sheet"></div>
+        </div><!-- /assets-sub-balance -->
+        <div id="assets-sub-detail" class="assets-sub">
         <div class="card">
             <div class="card-title">자산 현황</div>
             <div id="assets-table"><div class="loading">데이터 로딩 중</div></div>
         </div>
+        </div><!-- /assets-sub-detail -->
+        </div><!-- /assets-main -->
+      </div><!-- /assets-layout -->
     </div>
 
     <!-- ====== 캘린더 ====== -->
@@ -832,6 +894,15 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     event.target.classList.add('active');
+}
+
+// ── Assets sub-section switching (sidebar) ──
+function switchAssetsSub(name, el) {
+    document.querySelectorAll('.assets-sub').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.assets-sidebar a').forEach(a => a.classList.remove('active'));
+    const sub = document.getElementById('assets-sub-' + name);
+    if (sub) sub.classList.add('active');
+    if (el) el.classList.add('active');
 }
 
 // ── Google Sheets Config ──
