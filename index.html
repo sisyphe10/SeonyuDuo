@@ -492,6 +492,13 @@
             padding: 14px;
             border: 1px solid #bbb;
         }
+        .month-card.is-current {
+            background: var(--peach);
+            border: 2px solid var(--accent);
+        }
+        .month-card.is-current .month-card-title {
+            color: var(--accent);
+        }
         .month-card-title {
             font-size: 0.9rem;
             font-weight: 800;
@@ -514,6 +521,9 @@
         }
         .month-evt:hover {
             background: #f0f0f0;
+        }
+        .month-evt.upcoming {
+            font-weight: 700;
         }
         .month-evt .tooltip {
             display: none;
@@ -667,8 +677,8 @@
 </header>
 
 <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('assets')">자산관리</button>
-    <button class="tab-btn" onclick="switchTab('calendar')">캘린더</button>
+    <button class="tab-btn active" onclick="switchTab('calendar')">캘린더</button>
+    <button class="tab-btn" onclick="switchTab('assets')">자산관리</button>
     <button class="tab-btn" onclick="switchTab('ledger')">가계부</button>
     <button class="tab-btn" onclick="switchTab('exercise')">운동</button>
     <button class="tab-btn" onclick="switchTab('meeting')">가족회의</button>
@@ -677,7 +687,7 @@
 <div class="content">
 
     <!-- ====== 자산관리 ====== -->
-    <div id="tab-assets" class="tab-content active">
+    <div id="tab-assets" class="tab-content">
         <div id="assets-summary"></div>
         <div id="assets-charts" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
             <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:12px">
@@ -712,7 +722,7 @@
     </div>
 
     <!-- ====== 캘린더 ====== -->
-    <div id="tab-calendar" class="tab-content">
+    <div id="tab-calendar" class="tab-content active">
         <div id="yearCalSection" class="year-cal-section"></div>
         <div id="ddaySection" class="dday-section"></div>
     </div>
@@ -1023,7 +1033,7 @@ function renderLineChart(monthlyData, labels) {
                 backgroundColor: 'rgba(255,82,82,0.08)',
                 borderWidth: 2,
                 pointBackgroundColor: '#FF5252',
-                pointRadius: 5,
+                pointRadius: 3,
                 tension: 0.3,
                 fill: true,
                 spanGaps: false
@@ -1727,8 +1737,14 @@ async function loadYearCalendar() {
         html += '</div>';
         html += '<div class="year-cal-grid">';
 
+        const _now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+        const curMonth = _now.getMonth() + 1;
+        const curYear = _now.getFullYear();
+        const curDay = _now.getDate();
+
         for (let m = 1; m <= 12; m++) {
-            html += '<div class="month-card">';
+            const isCurrent = (m === curMonth && curYear === 2026);
+            html += `<div class="month-card${isCurrent ? ' is-current' : ''}">`;
             html += `<div class="month-card-title">${m}월</div>`;
             html += '<div class="month-card-events">';
 
@@ -1736,7 +1752,8 @@ async function loadYearCalendar() {
                 // empty month - leave blank
             } else {
                 monthEvents[m].forEach(ev => {
-                    html += `<div class="month-evt">• ${ev.content}<span class="tooltip">${ev.month}/${ev.day} (${ev.dow})</span></div>`;
+                    const upcoming = isCurrent && ev.day >= curDay;
+                    html += `<div class="month-evt${upcoming ? ' upcoming' : ''}">• ${ev.content}<span class="tooltip">${ev.month}/${ev.day} (${ev.dow})</span></div>`;
                 });
             }
 
