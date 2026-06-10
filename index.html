@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-    <script>document.addEventListener('DOMContentLoaded',function(){if(window.Chart)Chart.defaults.font.family="'Pretendard Variable', Pretendard, system-ui, -apple-system, sans-serif";});</script>
+    <script>document.addEventListener('DOMContentLoaded',function(){if(window.Chart){Chart.defaults.font.family="'Pretendard Variable', Pretendard, system-ui, -apple-system, sans-serif";Chart.defaults.devicePixelRatio=Math.max(2,window.devicePixelRatio||1);Chart.defaults.elements.line.borderJoinStyle='round';Chart.defaults.elements.line.borderCapStyle='round';}});</script>
     <script src="https://cdn.jsdelivr.net/npm/korean-lunar-calendar@0.3.6/dist/korean-lunar-calendar.min.js"></script>
     <style>
         :root {
