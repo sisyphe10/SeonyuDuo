@@ -425,8 +425,9 @@
             padding: 2px 9px; border-radius: 10px;
             color: #fff; white-space: nowrap;
         }
-        .tennis-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-        .tennis-filter .pill {
+        .ex-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+        .ex-filter:empty { display: none; }
+        .ex-filter .pill {
             font-size: 0.74rem; font-weight: 600;
             padding: 5px 11px; border-radius: 999px;
             border: 1.5px solid var(--border); background: #fff;
@@ -838,13 +839,14 @@
             <div class="ex-col">
                 <div class="card">
                     <div class="card-title">💪 워크아웃 · 러닝</div>
+                    <div id="workout-filter" class="ex-filter"></div>
                     <div id="exercise-workout"><div class="loading">데이터 로딩 중</div></div>
                 </div>
             </div>
             <div class="ex-col">
                 <div class="card">
                     <div class="card-title">🎾 테니스</div>
-                    <div id="tennis-filter" class="tennis-filter"></div>
+                    <div id="tennis-filter" class="ex-filter"></div>
                     <div id="exercise-tennis"><div class="loading">데이터 로딩 중</div></div>
                 </div>
             </div>
@@ -1620,6 +1622,20 @@ const TENNIS_FILTER_CATS = ['전체', ...TENNIS_CATEGORIES];
 let tennisRecords = [];
 let tennisCatFilter = '전체';
 
+// 워크아웃·러닝 카테고리: 데이터에서 동적 생성, 색은 종목명 해시로 고정 배정
+const WORKOUT_PALETTE = ['#5B7FFF', '#FF8C42', '#5a9e6f', '#9B59B6', '#E74C3C', '#16A085', '#E67E22', '#2C3E50', '#C0392B', '#27AE60', '#8E44AD', '#D35400'];
+let workoutRecords = [];
+let workoutCats = [];          // 동적 distinct 카테고리 (빈도 desc)
+let workoutCatFilter = '전체';
+
+function exCatColor(cat) {
+    if (CAT_COLORS[cat]) return CAT_COLORS[cat];   // 테니스 고정색 우선
+    if (!cat) return '#BBBBBB';
+    let h = 0;
+    for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) >>> 0;
+    return WORKOUT_PALETTE[h % WORKOUT_PALETTE.length];
+}
+
 function exEscape(s) {
     return String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1658,8 +1674,14 @@ async function loadExercise() {
             return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
         };
         tennisRecords = recs.filter(exIsTennis).sort(byDate);
-        const workout = recs.filter(r => !exIsTennis(r)).sort(byDate);
-        renderWorkout(workout);
+        workoutRecords = recs.filter(r => !exIsTennis(r)).sort(byDate);
+        // 워크아웃 카테고리 동적 집계 (빈도 desc, 동률 가나다순)
+        const wc = {};
+        workoutRecords.forEach(r => { if (r.cat) wc[r.cat] = (wc[r.cat] || 0) + 1; });
+        workoutCats = Object.keys(wc).sort((a, b) => wc[b] - wc[a] || a.localeCompare(b, 'ko'));
+        if (workoutCatFilter !== '전체' && !workoutCats.includes(workoutCatFilter)) workoutCatFilter = '전체';
+        renderWorkoutFilter();
+        renderWorkout();
         renderTennisFilter();
         renderTennis();
     } catch (e) {
@@ -1674,10 +1696,8 @@ function exRecCard(rec, withCat) {
     let head = '<div class="ex-rec-head">';
     if (dateStr) head += `<span class="ex-rec-date">${dateStr}</span>`;
     if (dow) head += `<span class="ex-rec-dow">${dow}</span>`;
-    if (withCat) {
-        const cat = rec.cat || '미분류';
-        const color = CAT_COLORS[cat] || '#BBBBBB';
-        head += `<span class="ex-cat-badge" style="background:${color}">${exEscape(cat)}</span>`;
+    if (withCat && rec.cat) {
+        head += `<span class="ex-cat-badge" style="background:${exCatColor(rec.cat)}">${exEscape(rec.cat)}</span>`;
     }
     if (rec.owner) head += `<span class="ex-rec-owner">${exEscape(rec.owner)}</span>`;
     if (rec.place) head += `<span class="ex-rec-place">📍 ${exEscape(rec.place)}</span>`;
@@ -1686,18 +1706,46 @@ function exRecCard(rec, withCat) {
     return `<div class="ex-rec">${head}${body}</div>`;
 }
 
-function renderWorkout(recs) {
+function renderWorkoutFilter() {
+    const el = document.getElementById('workout-filter');
+    if (!workoutCats.length) { el.innerHTML = ''; return; }   // 카테고리 없으면 필터 숨김
+    const cats = ['전체', ...workoutCats];
+    el.innerHTML = cats.map((c, i) => {
+        const color = c === '전체' ? 'var(--accent)' : exCatColor(c);
+        const active = c === workoutCatFilter;
+        const style = active
+            ? `background:${color};border-color:${color};color:#fff;`
+            : `border-color:${color};color:${color};`;
+        return `<span class="pill" style="${style}" onclick="setWorkoutFilter(${i})">${exEscape(c)}</span>`;
+    }).join('');
+}
+
+function setWorkoutFilter(i) {
+    const cats = ['전체', ...workoutCats];
+    workoutCatFilter = cats[i] || '전체';
+    renderWorkoutFilter();
+    renderWorkout();
+}
+
+function renderWorkout() {
     const el = document.getElementById('exercise-workout');
-    if (!recs.length) {
+    if (!workoutRecords.length) {
         el.innerHTML = emptyState('워크아웃·러닝 기록이 없습니다', "'유형'을 러닝/워크아웃으로 입력하면 표시됩니다");
         return;
     }
-    el.innerHTML = recs.map(r => exRecCard(r, false)).join('');
+    const recs = workoutCatFilter === '전체'
+        ? workoutRecords
+        : workoutRecords.filter(r => r.cat === workoutCatFilter);
+    if (!recs.length) {
+        el.innerHTML = emptyState(`'${workoutCatFilter}' 기록이 없습니다`, '');
+        return;
+    }
+    el.innerHTML = recs.map(r => exRecCard(r, true)).join('');
 }
 
 function renderTennisFilter() {
     document.getElementById('tennis-filter').innerHTML = TENNIS_FILTER_CATS.map((c, i) => {
-        const color = c === '전체' ? 'var(--accent)' : (CAT_COLORS[c] || '#999');
+        const color = c === '전체' ? 'var(--accent)' : exCatColor(c);
         const active = c === tennisCatFilter;
         const style = active
             ? `background:${color};border-color:${color};color:#fff;`
