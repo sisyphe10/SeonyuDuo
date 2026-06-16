@@ -389,6 +389,49 @@
             .bs-wrap { flex-direction: column; }
         }
 
+        /* ── Exercise (운동) split ── */
+        .ex-split { display: flex; gap: 16px; align-items: flex-start; }
+        .ex-col { flex: 1; min-width: 0; }
+        @media (max-width: 700px) { .ex-split { flex-direction: column; } }
+
+        .ex-rec {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+        }
+        .ex-rec:last-child { margin-bottom: 0; }
+        .ex-rec-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .ex-rec-date { font-size: 0.85rem; font-weight: 800; color: var(--text); }
+        .ex-rec-dow { font-size: 0.72rem; color: var(--text-light); }
+        .ex-rec-owner {
+            font-size: 0.68rem; font-weight: 700;
+            padding: 1px 8px; border-radius: 10px;
+            background: #F0F0F0; color: #666;
+        }
+        .ex-rec-place { font-size: 0.76rem; color: var(--text-light); margin-left: auto; }
+        .ex-rec-body {
+            font-size: 0.82rem; color: var(--text); line-height: 1.55;
+            white-space: pre-wrap; word-break: break-word;
+        }
+        .ex-cat-badge {
+            font-size: 0.68rem; font-weight: 700;
+            padding: 2px 9px; border-radius: 10px;
+            color: #fff; white-space: nowrap;
+        }
+        .tennis-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+        .tennis-filter .pill {
+            font-size: 0.74rem; font-weight: 600;
+            padding: 5px 11px; border-radius: 999px;
+            border: 1.5px solid var(--border); background: #fff;
+            color: #666; cursor: pointer; transition: all 0.12s;
+        }
 
         /* ── Empty State ── */
         .empty-state {
@@ -791,9 +834,20 @@
 
     <!-- ====== 운동 ====== -->
     <div id="tab-exercise" class="tab-content">
-        <div class="card">
-            <div class="card-title">운동 기록</div>
-            <div id="exercise-table"><div class="loading">데이터 로딩 중</div></div>
+        <div class="ex-split">
+            <div class="ex-col">
+                <div class="card">
+                    <div class="card-title">💪 워크아웃 · 러닝</div>
+                    <div id="exercise-workout"><div class="loading">데이터 로딩 중</div></div>
+                </div>
+            </div>
+            <div class="ex-col">
+                <div class="card">
+                    <div class="card-title">🎾 테니스</div>
+                    <div id="tennis-filter" class="tennis-filter"></div>
+                    <div id="exercise-tennis"><div class="loading">데이터 로딩 중</div></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1072,11 +1126,31 @@ let pieChartInstance = null;
 let pieAllAssets = [];  // 파이차트용 전체 자산 데이터
 let bsData = { listed: [], unlisted: [], debts: [] };  // 대차대조표용
 let latestDateStr = '';  // 기준 월 문자열
+// 담당자 필터 시 라인/바 차트 재계산용 상태
+let assetsDataRows = [], assetsHeaderRow = [], assetsMonthCols = [], assetsLineLabels = [];
+
+// 담당자(filter)별 월별 순자산 배열 재계산
+function ownerLineData(filter) {
+    return assetsMonthCols.map(mc => {
+        const c = classifyRows(assetsDataRows, assetsHeaderRow, mc.idx);
+        if (filter !== 'all') {
+            c.listed = c.listed.filter(x => x.owner === filter);
+            c.unlisted = c.unlisted.filter(x => x.owner === filter);
+            c.debts = c.debts.filter(x => x.owner === filter);
+        }
+        return calcNetWorth(c).netWorth;
+    });
+}
 
 function filterPieChart() {
     const filter = document.getElementById('pieOwnerFilter').value;
+    // 파이차트: 기존 로직 유지
     const filtered = filter === 'all' ? pieAllAssets : pieAllAssets.filter(x => x.owner === filter);
     renderPieChart(filtered);
+    // 라인/바 차트: 선택 담당자 기준 월별 순자산으로 재렌더
+    const ld = ownerLineData(filter);
+    renderLineChart(ld, assetsLineLabels);
+    renderBarChart(ld, assetsLineLabels);
 }
 
 function filterBalanceSheet() {
@@ -1448,6 +1522,12 @@ async function loadAssets(aligns) {
             return calcNetWorth(c).netWorth;
         });
 
+        // 담당자 필터 재계산용 상태 저장
+        assetsDataRows = dataRows;
+        assetsHeaderRow = headerRow;
+        assetsMonthCols = monthCols;
+        assetsLineLabels = lineLabels;
+
         const ownerSort = (a, b) => {
             if (a.owner !== b.owner) return a.owner === 'TS' ? -1 : 1;
             return b.amt - a.amt;
@@ -1525,20 +1605,127 @@ async function loadMeeting(aligns) {
 }
 
 // ── 운동 ──
+// 좌: 워크아웃·러닝 / 우: 테니스 (카테고리 필터). 분류는 '유형' 컬럼 기준, 없으면 키워드 폴백.
+const TENNIS_CATEGORIES = ['포핸드', '백핸드', '백핸드 슬라이스', '포핸드 발리', '백핸드 발리', '서브', '공통'];
+const CAT_COLORS = {
+    '포핸드': '#FF5252',
+    '포핸드 발리': '#FF8C42',
+    '백핸드': '#5B7FFF',
+    '백핸드 슬라이스': '#8FA8FF',
+    '백핸드 발리': '#3D3A6E',
+    '서브': '#5a9e6f',
+    '공통': '#888888'
+};
+const TENNIS_FILTER_CATS = ['전체', ...TENNIS_CATEGORIES];
+let tennisRecords = [];
+let tennisCatFilter = '전체';
+
+function exEscape(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function exIsTennis(rec) {
+    if (rec.type) return rec.type.includes('테니스');
+    // '유형' 미입력 행 안전망: 명확한 테니스 단어가 있을 때만 (워크아웃/러닝 오분류 방지)
+    return /테니스|코트|레슨/.test((rec.place || '') + ' ' + (rec.content || ''));
+}
+
 async function loadExercise() {
     try {
-        const { cols, rows } = await fetchSheet(SHEET_NAMES.exercise);
-        if (rows.length === 0) {
-            document.getElementById('exercise-table').innerHTML = emptyState('운동 기록이 없습니다', '운동 시트에 데이터를 입력하세요');
-            return;
+        let recs;
+        if (Array.isArray(window.DEMO_EXERCISE)) {
+            recs = window.DEMO_EXERCISE;  // 미리보기용 데모 (운영 index.html에서는 undefined)
+        } else {
+            const { cols, rows } = await fetchSheet(SHEET_NAMES.exercise);
+            const iDate = cols.indexOf('날짜'), iDow = cols.indexOf('요일'),
+                  iOwner = cols.indexOf('담당자'), iPlace = cols.indexOf('장소'),
+                  iContent = cols.indexOf('내용'), iType = cols.indexOf('유형'),
+                  iCat = cols.indexOf('카테고리');
+            recs = rows.map(r => ({
+                date: iDate >= 0 ? r[iDate] : '',
+                dow: iDow >= 0 ? r[iDow] : '',
+                owner: iOwner >= 0 ? (r[iOwner] || '') : '',
+                place: iPlace >= 0 ? (r[iPlace] || '') : '',
+                content: iContent >= 0 ? (r[iContent] || '') : '',
+                type: iType >= 0 ? String(r[iType] || '').trim() : '',
+                cat: iCat >= 0 ? String(r[iCat] || '').trim() : ''
+            }));
         }
-        // 최신순 정렬
-        const dateIdx = cols.indexOf('날짜');
-        if (dateIdx >= 0) rows.sort((a, b) => (b[dateIdx] || '').localeCompare(a[dateIdx] || ''));
-        document.getElementById('exercise-table').innerHTML = renderSheet(cols, rows, []);
+        const byDate = (a, b) => {
+            const da = parseDate(a.date), db = parseDate(b.date);
+            return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+        };
+        tennisRecords = recs.filter(exIsTennis).sort(byDate);
+        const workout = recs.filter(r => !exIsTennis(r)).sort(byDate);
+        renderWorkout(workout);
+        renderTennisFilter();
+        renderTennis();
     } catch (e) {
-        document.getElementById('exercise-table').innerHTML = errorState('운동 데이터를 불러올 수 없습니다');
+        document.getElementById('exercise-workout').innerHTML = errorState('운동 데이터를 불러올 수 없습니다');
+        document.getElementById('exercise-tennis').innerHTML = errorState('테니스 데이터를 불러올 수 없습니다');
     }
+}
+
+function exRecCard(rec, withCat) {
+    const dateStr = formatDateStr(rec.date);
+    const dow = rec.dow ? formatDayStr(rec.dow) : (rec.date ? formatDayStr(rec.date) : '');
+    let head = '<div class="ex-rec-head">';
+    if (dateStr) head += `<span class="ex-rec-date">${dateStr}</span>`;
+    if (dow) head += `<span class="ex-rec-dow">${dow}</span>`;
+    if (withCat) {
+        const cat = rec.cat || '미분류';
+        const color = CAT_COLORS[cat] || '#BBBBBB';
+        head += `<span class="ex-cat-badge" style="background:${color}">${exEscape(cat)}</span>`;
+    }
+    if (rec.owner) head += `<span class="ex-rec-owner">${exEscape(rec.owner)}</span>`;
+    if (rec.place) head += `<span class="ex-rec-place">📍 ${exEscape(rec.place)}</span>`;
+    head += '</div>';
+    const body = rec.content ? `<div class="ex-rec-body">${exEscape(rec.content)}</div>` : '';
+    return `<div class="ex-rec">${head}${body}</div>`;
+}
+
+function renderWorkout(recs) {
+    const el = document.getElementById('exercise-workout');
+    if (!recs.length) {
+        el.innerHTML = emptyState('워크아웃·러닝 기록이 없습니다', "'유형'을 러닝/워크아웃으로 입력하면 표시됩니다");
+        return;
+    }
+    el.innerHTML = recs.map(r => exRecCard(r, false)).join('');
+}
+
+function renderTennisFilter() {
+    document.getElementById('tennis-filter').innerHTML = TENNIS_FILTER_CATS.map((c, i) => {
+        const color = c === '전체' ? 'var(--accent)' : (CAT_COLORS[c] || '#999');
+        const active = c === tennisCatFilter;
+        const style = active
+            ? `background:${color};border-color:${color};color:#fff;`
+            : `border-color:${color};color:${color};`;
+        return `<span class="pill" style="${style}" onclick="setTennisFilter(${i})">${exEscape(c)}</span>`;
+    }).join('');
+}
+
+function setTennisFilter(i) {
+    tennisCatFilter = TENNIS_FILTER_CATS[i] || '전체';
+    renderTennisFilter();
+    renderTennis();
+}
+
+function renderTennis() {
+    const el = document.getElementById('exercise-tennis');
+    if (!tennisRecords.length) {
+        el.innerHTML = emptyState('테니스 기록이 없습니다', "'유형'을 테니스로 입력하면 표시됩니다");
+        return;
+    }
+    const recs = tennisCatFilter === '전체'
+        ? tennisRecords
+        : tennisRecords.filter(r => r.cat === tennisCatFilter);
+    if (!recs.length) {
+        el.innerHTML = emptyState(`'${tennisCatFilter}' 기록이 없습니다`, '');
+        return;
+    }
+    el.innerHTML = recs.map(r => exRecCard(r, true)).join('');
 }
 
 // ── 목표 ──
