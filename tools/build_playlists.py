@@ -18,6 +18,13 @@ import os
 import datetime
 import urllib.request
 
+# Windows 콘솔(cp949)에서 한글/em대시 출력 시 UnicodeEncodeError 방지
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # === 설정: 재생목록을 여기에 추가하세요 (name=None 이면 YouTube 재생목록 제목 사용) ===
 PLAYLISTS = [
     {"id": "PLqmCTHxdkjRPoKzLBVgeSm3t8oyB-aE_G", "name": None},
@@ -64,7 +71,8 @@ def playlist_video_ids(plhtml):
 
 
 def video_meta(vid):
-    h = fetch("https://www.youtube.com/watch?v=" + vid)
+    # bpctr/hl/gl: consent 인터스티셜 우회 (클라우드 IP에서 watch 페이지 차단 회피)
+    h = fetch("https://www.youtube.com/watch?v=" + vid + "&bpctr=9999999999&hl=ko&gl=KR")
     tm = OGT_RE.search(h)
     dm = DATE_RE.search(h) or PUBDATE_RE.search(h)  # uploadDate 우선, 없으면 publishDate
     title = html.unescape(tm.group(1)).strip() if tm else vid
@@ -99,15 +107,27 @@ def main():
     total = sum(len(p["videos"]) for p in data["playlists"])
     if total == 0:
         raise RuntimeError("영상 0개 — 기존 파일 보존하고 중단")
+    # 검증: 제목/날짜 추출 실패(제목=영상ID 또는 날짜 빈값) 시 중단 → 깨진 데이터 커밋 방지
+    bad = [v["id"] for p in data["playlists"] for v in p["videos"] if not v["date"] or v["title"] == v["id"]]
+    if bad:
+        raise RuntimeError(
+            "제목/날짜 추출 실패 %d건(%s) — consent 월/IP 차단 의심, 기존 파일 보존하고 중단"
+            % (len(bad), ", ".join(bad[:5]))
+        )
     new_json = json.dumps(data, ensure_ascii=False, indent=2)
 
+    # generated_at(타임스탬프) 줄 제외하고 기존 파일과 비교 → 내용 동일하면 안 씀(no-op 커밋 방지)
+    norm = lambda s: re.sub(r'"generated_at":\s*"[^"]*",?\n', "", s)
+    old = open(OUT, encoding="utf-8").read() if os.path.exists(OUT) else ""
+    changed = norm(old) != norm(new_json)
+
     if "--check" in sys.argv:
-        old = open(OUT, encoding="utf-8").read() if os.path.exists(OUT) else ""
-        # generated_at 줄 제외하고 비교
-        norm = lambda s: re.sub(r'"generated_at":\s*"[^"]*",?\n', "", s)
-        changed = norm(old) != norm(new_json)
         print("CHANGED" if changed else "UNCHANGED")
         sys.exit(1 if changed else 0)
+
+    if old and not changed:
+        print("변경 없음 — 기존 파일 유지 (타임스탬프-only 커밋 방지)")
+        return
 
     tmp = OUT + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
