@@ -29,7 +29,6 @@
         .card { background: var(--card); border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
         .card-title { font-size: 1rem; font-weight: 800; margin-bottom: 16px; color: var(--text); }
 
-        /* 재생목록 선택 탭 */
         .seonyu-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
         .seonyu-tab { padding: 7px 14px; border: 1px solid var(--border); border-radius: 20px; background: #fff; color: var(--text-light); font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all .12s; }
         .seonyu-tab:hover { color: var(--accent); border-color: var(--accent-light); }
@@ -38,14 +37,12 @@
         .seonyu-player-wrap { position: relative; width: 100%; padding-top: 56.25%; border-radius: 12px; overflow: hidden; background: #000; }
         .seonyu-player-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
-        /* 리스트 헤더 (제목 + 정렬 토글) */
         .seonyu-list-head { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; margin-bottom: 8px; }
         .seonyu-list-head .lbl { font-size: 0.85rem; font-weight: 700; color: var(--text); }
         .seonyu-list-head .lbl em { color: var(--text-light); font-style: normal; font-weight: 600; margin-left: 4px; }
         .sort-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--accent); font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: background .12s, border-color .12s; }
         .sort-btn:hover { background: var(--peach); border-color: var(--accent-light); }
 
-        /* 영상 리스트 (제목형) */
         .seonyu-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
         .seonyu-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .12s; }
         .seonyu-item:last-child { border-bottom: none; }
@@ -75,12 +72,9 @@
             <div class="card-title">📺 우리 영상</div>
             <div class="seonyu-tabs" id="seonyuTabs"></div>
             <div class="seonyu-player-wrap">
-                <iframe id="seonyuPlayer"
-                    src="about:blank"
-                    title="선유듀오 영상"
+                <iframe id="seonyuPlayer" src="about:blank" title="선유듀오 영상"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerpolicy="strict-origin-when-cross-origin"
-                    allowfullscreen></iframe>
+                    referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
             </div>
             <div class="seonyu-list-head">
                 <span class="lbl">재생목록 <em id="vidCount"></em></span>
@@ -95,35 +89,73 @@
     <footer>선유듀오 © 2026</footer>
 
     <script>
-        let DATA = null;       // playlists.json
-        let curPL = 0;         // 선택된 재생목록 index
+        // === 설정: 재생목록 추가 = 아래 배열에 {id, name} 한 줄 추가 (name은 API 실패 시 폴백 표시명) ===
+        const PLAYLISTS_CONFIG = [
+            { id: 'PLqmCTHxdkjRPoKzLBVgeSm3t8oyB-aE_G', name: '선유듀오의 첫걸음' },
+        ];
+        const API_KEY = 'AIzaSyCHPiRby5FVAIKDwneZHy1KGl3SfycjZEw';   // 빌드 시 index.html의 키로 주입됨
+        const API_BASE = 'https://www.googleapis.com/youtube/v3/';
+
+        let DATA = null;       // [{id, name, videos:[{id,title,date}]}]
+        let curPL = 0;
         let sortAsc = true;    // 기본: 업로드 시각 오름차순
-        let currentId = null;  // 현재 재생/선택 영상
+        let currentId = null;
 
         function escapeHtml(s) {
             return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
-        // 표시 날짜: ISO 날짜부(원본 타임존) 그대로 → YouTube 게시일과 동일
         function fmtDate(iso) {
             const d = (iso || '').slice(0, 10);
             return d ? d.replace(/-/g, '.') : '';
         }
-        function playlistObj() { return DATA.playlists[curPL]; }
+        function playlistObj() { return DATA[curPL]; }
 
+        // ── YouTube Data API ──
+        async function apiGet(path, params) {
+            const url = new URL(API_BASE + path);
+            Object.entries(Object.assign({}, params, { key: API_KEY })).forEach(([k, v]) => url.searchParams.set(k, v));
+            const r = await fetch(url.toString());
+            if (!r.ok) throw new Error('API ' + r.status);
+            return r.json();
+        }
+        async function fetchPlaylistVideos(pid) {
+            const videos = [];
+            let pageToken = '';
+            do {
+                const params = { part: 'snippet,contentDetails', maxResults: 50, playlistId: pid };
+                if (pageToken) params.pageToken = pageToken;
+                const d = await apiGet('playlistItems', params);
+                for (const it of (d.items || [])) {
+                    const vid = it.contentDetails && it.contentDetails.videoId;
+                    const date = (it.contentDetails && it.contentDetails.videoPublishedAt) || '';
+                    if (!vid || !date) continue;   // 삭제/비공개 영상(날짜 없음) 제외
+                    videos.push({ id: vid, title: (it.snippet && it.snippet.title) || vid, date: date });
+                }
+                pageToken = d.nextPageToken || '';
+            } while (pageToken);
+            return videos;
+        }
+        async function fetchNames(ids) {
+            try {
+                const d = await apiGet('playlists', { part: 'snippet', id: ids.join(',') });
+                const m = {};
+                (d.items || []).forEach(p => { m[p.id] = p.snippet && p.snippet.title; });
+                return m;
+            } catch (e) { return {}; }
+        }
+
+        // ── 렌더 ──
         function sortedVideos() {
             return [...playlistObj().videos].sort((a, b) => {
                 const ta = new Date(a.date).getTime() || 0, tb = new Date(b.date).getTime() || 0;
                 return sortAsc ? ta - tb : tb - ta;
             });
         }
-
         function renderTabs() {
-            const pls = DATA.playlists;
-            document.getElementById('seonyuTabs').innerHTML = pls.map((p, i) =>
+            document.getElementById('seonyuTabs').innerHTML = DATA.map((p, i) =>
                 `<button class="seonyu-tab${i === curPL ? ' active' : ''}" onclick="selectPlaylist(${i})">${escapeHtml(p.name)}</button>`
             ).join('');
         }
-
         function renderList() {
             const list = sortedVideos();
             document.getElementById('vidCount').textContent = list.length + '개';
@@ -138,7 +170,6 @@
                     <span class="play">▶ 재생 중</span>
                 </div>`).join('');
         }
-
         function selectPlaylist(i) {
             curPL = i;
             currentId = null;
@@ -147,7 +178,6 @@
             renderTabs();
             renderList();
         }
-
         function selectVideo(id) {
             currentId = id;
             document.getElementById('seonyuPlayer').src =
@@ -155,27 +185,43 @@
                 '?list=' + encodeURIComponent(playlistObj().id) + '&autoplay=1&rel=0';
             renderList();
         }
-
         function toggleSort() { sortAsc = !sortAsc; renderList(); }
 
+        // ── 초기화: Data API 실시간 → 실패 시 playlists.json 폴백 ──
+        async function loadFromApi() {
+            const ids = PLAYLISTS_CONFIG.map(p => p.id);
+            const nameMap = await fetchNames(ids);
+            const data = [];
+            for (const cfg of PLAYLISTS_CONFIG) {
+                const videos = await fetchPlaylistVideos(cfg.id);
+                data.push({ id: cfg.id, name: nameMap[cfg.id] || cfg.name || cfg.id, videos });
+            }
+            if (!data.some(p => p.videos.length)) throw new Error('empty');
+            return data;
+        }
+        async function loadFromJson() {
+            const r = await fetch('playlists.json?t=' + Date.now());
+            if (!r.ok) throw new Error('json ' + r.status);
+            return (await r.json()).playlists;
+        }
         async function init() {
             try {
-                const res = await fetch('playlists.json?t=' + Date.now());
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                DATA = await res.json();
+                DATA = await loadFromApi();
             } catch (e) {
-                document.getElementById('seonyuList').innerHTML =
-                    '<div class="seonyu-empty">영상 목록을 불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>';
-                return;
+                try { DATA = await loadFromJson(); }
+                catch (e2) {
+                    document.getElementById('seonyuList').innerHTML =
+                        '<div class="seonyu-empty">영상 목록을 불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>';
+                    return;
+                }
             }
-            if (!DATA.playlists || !DATA.playlists.length) {
+            if (!DATA || !DATA.length) {
                 document.getElementById('seonyuList').innerHTML = '<div class="seonyu-empty">아직 영상이 없어요.</div>';
                 return;
             }
             renderTabs();
             selectPlaylist(0);
         }
-
         init();
     </script>
 </body>
