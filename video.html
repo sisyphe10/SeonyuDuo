@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>선유듀오 · 우리 영상</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+    <style>
+        :root {
+            --bg: #F0EDEA;
+            --card: #ffffff;
+            --accent: #FF5252;
+            --accent-light: #FFB0B0;
+            --text: #222222;
+            --text-light: #999999;
+            --border: #F0F0F0;
+            --peach: #FFF0EE;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        *, input, button { font-family: 'Pretendard Variable', Pretendard, system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        header { background: #fff; padding: 22px; text-align: center; border-bottom: 1px solid var(--border); }
+        header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: 1px; color: #222; }
+        header .sub { margin-top: 4px; font-size: 0.85rem; color: var(--text-light); font-weight: 600; }
+
+        .content { padding: 24px; max-width: 1000px; margin: 0 auto; }
+        .card { background: var(--card); border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .card-title { font-size: 1rem; font-weight: 800; margin-bottom: 16px; color: var(--text); }
+
+        /* 재생목록 선택 탭 */
+        .seonyu-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .seonyu-tab { padding: 7px 14px; border: 1px solid var(--border); border-radius: 20px; background: #fff; color: var(--text-light); font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all .12s; }
+        .seonyu-tab:hover { color: var(--accent); border-color: var(--accent-light); }
+        .seonyu-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+        .seonyu-player-wrap { position: relative; width: 100%; padding-top: 56.25%; border-radius: 12px; overflow: hidden; background: #000; }
+        .seonyu-player-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+        /* 리스트 헤더 (제목 + 정렬 토글) */
+        .seonyu-list-head { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; margin-bottom: 8px; }
+        .seonyu-list-head .lbl { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+        .seonyu-list-head .lbl em { color: var(--text-light); font-style: normal; font-weight: 600; margin-left: 4px; }
+        .sort-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--accent); font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: background .12s, border-color .12s; }
+        .sort-btn:hover { background: var(--peach); border-color: var(--accent-light); }
+
+        /* 영상 리스트 (제목형) */
+        .seonyu-list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .seonyu-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background .12s; }
+        .seonyu-item:last-child { border-bottom: none; }
+        .seonyu-item:hover { background: #FAF7F6; }
+        .seonyu-item.active { background: var(--peach); }
+        .seonyu-item .n { width: 22px; height: 22px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #eee; color: var(--text-light); font-size: 0.75rem; font-weight: 800; }
+        .seonyu-item.active .n { background: var(--accent); color: #fff; }
+        .seonyu-item .ttl { flex: 1; font-size: 0.92rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .seonyu-item.active .ttl { color: var(--accent); font-weight: 700; }
+        .seonyu-item .date { flex-shrink: 0; font-size: 0.78rem; color: var(--text-light); font-weight: 600; }
+        .seonyu-item .play { color: var(--accent); font-size: 0.78rem; font-weight: 700; opacity: 0; flex-shrink: 0; white-space: nowrap; }
+        .seonyu-item.active .play { opacity: 1; }
+
+        .seonyu-empty { padding: 28px 16px; text-align: center; color: var(--text-light); font-size: 0.9rem; }
+
+        footer { text-align: center; padding: 20px; color: var(--text-light); font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>선유듀오 💕</h1>
+        <div class="sub">우리 영상</div>
+    </header>
+
+    <div class="content">
+        <div class="card">
+            <div class="card-title">📺 우리 영상</div>
+            <div class="seonyu-tabs" id="seonyuTabs"></div>
+            <div class="seonyu-player-wrap">
+                <iframe id="seonyuPlayer"
+                    src="about:blank"
+                    title="선유듀오 영상"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allowfullscreen></iframe>
+            </div>
+            <div class="seonyu-list-head">
+                <span class="lbl">재생목록 <em id="vidCount"></em></span>
+                <button class="sort-btn" id="sortToggle" onclick="toggleSort()" style="display:none"></button>
+            </div>
+            <div class="seonyu-list" id="seonyuList">
+                <div class="seonyu-empty">불러오는 중…</div>
+            </div>
+        </div>
+    </div>
+
+    <footer>선유듀오 © 2026</footer>
+
+    <script>
+        let DATA = null;       // playlists.json
+        let curPL = 0;         // 선택된 재생목록 index
+        let sortAsc = true;    // 기본: 업로드 시각 오름차순
+        let currentId = null;  // 현재 재생/선택 영상
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        // 표시 날짜: ISO 날짜부(원본 타임존) 그대로 → YouTube 게시일과 동일
+        function fmtDate(iso) {
+            const d = (iso || '').slice(0, 10);
+            return d ? d.replace(/-/g, '.') : '';
+        }
+        function playlistObj() { return DATA.playlists[curPL]; }
+
+        function sortedVideos() {
+            return [...playlistObj().videos].sort((a, b) => {
+                const ta = new Date(a.date).getTime() || 0, tb = new Date(b.date).getTime() || 0;
+                return sortAsc ? ta - tb : tb - ta;
+            });
+        }
+
+        function renderTabs() {
+            const pls = DATA.playlists;
+            document.getElementById('seonyuTabs').innerHTML = pls.map((p, i) =>
+                `<button class="seonyu-tab${i === curPL ? ' active' : ''}" onclick="selectPlaylist(${i})">${escapeHtml(p.name)}</button>`
+            ).join('');
+        }
+
+        function renderList() {
+            const list = sortedVideos();
+            document.getElementById('vidCount').textContent = list.length + '개';
+            const btn = document.getElementById('sortToggle');
+            btn.style.display = list.length > 1 ? '' : 'none';
+            btn.textContent = sortAsc ? '↑ 오름차순' : '↓ 내림차순';
+            document.getElementById('seonyuList').innerHTML = list.map((v, i) => `
+                <div class="seonyu-item${v.id === currentId ? ' active' : ''}" onclick="selectVideo('${v.id}')">
+                    <span class="n">${i + 1}</span>
+                    <span class="ttl">${escapeHtml(v.title)}</span>
+                    <span class="date">${fmtDate(v.date)}</span>
+                    <span class="play">▶ 재생 중</span>
+                </div>`).join('');
+        }
+
+        function selectPlaylist(i) {
+            curPL = i;
+            currentId = null;
+            document.getElementById('seonyuPlayer').src =
+                'https://www.youtube.com/embed/videoseries?list=' + encodeURIComponent(playlistObj().id) + '&rel=0';
+            renderTabs();
+            renderList();
+        }
+
+        function selectVideo(id) {
+            currentId = id;
+            document.getElementById('seonyuPlayer').src =
+                'https://www.youtube.com/embed/' + encodeURIComponent(id) +
+                '?list=' + encodeURIComponent(playlistObj().id) + '&autoplay=1&rel=0';
+            renderList();
+        }
+
+        function toggleSort() { sortAsc = !sortAsc; renderList(); }
+
+        async function init() {
+            try {
+                const res = await fetch('playlists.json?t=' + Date.now());
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                DATA = await res.json();
+            } catch (e) {
+                document.getElementById('seonyuList').innerHTML =
+                    '<div class="seonyu-empty">영상 목록을 불러오지 못했어요. 잠시 후 새로고침 해주세요.</div>';
+                return;
+            }
+            if (!DATA.playlists || !DATA.playlists.length) {
+                document.getElementById('seonyuList').innerHTML = '<div class="seonyu-empty">아직 영상이 없어요.</div>';
+                return;
+            }
+            renderTabs();
+            selectPlaylist(0);
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+name: Update playlists.json
+
+# 재생목록을 스크랩해 playlists.json 자동 갱신.
+# - 매일 1회 + 수동 실행(workflow_dispatch).
+# - 스크랩 실패 시 스크립트가 비정상 종료 → 커밋 안 함(기존 파일 보존) → 워크플로 실패 알림.
+# - 주의: GitHub Actions 클라우드 IP는 YouTube에서 간헐 차단될 수 있음.
+#   실패가 잦으면 VM cron 또는 로컬 실행으로 전환 권장. 수동 트리거/로컬 실행은 항상 가능.
+
+on:
+  schedule:
+    - cron: '30 19 * * *'   # 매일 04:30 KST (= 19:30 UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-playlists
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build playlists.json
+        run: python tools/build_playlists.py
+      - name: Commit if changed
+        run: |
+          if [ -n "$(git status --porcelain playlists.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add playlists.json
+            git commit -m "chore: update playlists.json [skip ci]"
+            git push
+            echo "playlists.json updated"
+          else
+            echo "no changes"
+          fi

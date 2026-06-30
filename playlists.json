@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-06-30 14:28",
+  "playlists": [
+    {
+      "name": "선유듀오의 첫걸음",
+      "id": "PLqmCTHxdkjRPoKzLBVgeSm3t8oyB-aE_G",
+      "videos": [
+        {
+          "id": "QKLzWqeqM3E",
+          "title": "Before Ceremony",
+          "date": "2026-03-28T15:09:42-07:00"
+        },
+        {
+          "id": "K60CmMO5sgs",
+          "title": "Ceremony",
+          "date": "2026-03-28T14:49:00-07:00"
+        },
+        {
+          "id": "tHGReNqC_Us",
+          "title": "After Ceremony with interview",
+          "date": "2026-03-28T08:30:53-07:00"
+        },
+        {
+          "id": "UfClBgqVhXo",
+          "title": "Parent Clip",
+          "date": "2026-03-28T08:29:09-07:00"
+        }
+      ]
+    }
+  ]
+}
