@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-30 14:35",
+  "generated_at": "2026-07-06 08:29",
   "playlists": [
     {
       "name": "선유듀오의 첫걸음",
@@ -24,6 +24,17 @@
           "id": "UfClBgqVhXo",
           "title": "Parent Clip",
           "date": "2026-03-28T08:29:09-07:00"
+        }
+      ]
+    },
+    {
+      "name": "운동",
+      "id": "PLqmCTHxdkjRMpCn8tC3hGzia9MF9yOQg9",
+      "videos": [
+        {
+          "id": "SNTIGbZdN64",
+          "title": "260703_써티올테니스 영등포",
+          "date": "2026-07-03T21:06:32-07:00"
         }
       ]
     }

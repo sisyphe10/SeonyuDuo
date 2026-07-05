@@ -28,6 +28,7 @@ for _s in (sys.stdout, sys.stderr):
 # === 설정: 재생목록을 여기에 추가하세요 (name=None 이면 YouTube 재생목록 제목 사용) ===
 PLAYLISTS = [
     {"id": "PLqmCTHxdkjRPoKzLBVgeSm3t8oyB-aE_G", "name": None},
+    {"id": "PLqmCTHxdkjRMpCn8tC3hGzia9MF9yOQg9", "name": None},
 ]
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "playlists.json")
