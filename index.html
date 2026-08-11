@@ -772,7 +772,7 @@
             position: sticky;
             top: 0;
             z-index: 2;
-            min-width: 96px;
+            overflow: hidden;
         }
         .tgrid th.rownum-h { position: sticky; left: 0; z-index: 3; min-width: 38px; }
         .tgrid td.rownum {
@@ -791,8 +791,6 @@
             border-right: 1px solid #e6e9ec;
             border-bottom: 1px solid #e6e9ec;
             padding: 0;
-            min-width: 96px;
-            max-width: 280px;
             font-size: 0.82rem;
             background: #fff;
         }
@@ -2578,6 +2576,11 @@ let travelCells = [];   // 렌더된 셀 div 2차원 배열
 let travelColThs = [];  // 열 머리글 th 배열
 let travelAligns = [];  // 셀별 정렬 'left'|'center'|'right'|'' (시트 서식과 왕복)
 let travelFmts = [];    // 셀별 {bg,bold,fg} — 시트에서 칠한 하이라이트 등 표시 전용(저장은 건드리지 않음)
+let travelColWidths = [];  // 열 폭 px — 시트 columnMetadata와 왕복
+let travelRowHeights = []; // 행 높이 px (null=auto) — 시트 rowMetadata와 왕복
+let travelColEls = [];     // colgroup col 요소 (드래그 중 실시간 반영용)
+let travelDimDirty = { cols: {}, rows: {} };  // 저장 대기 중인 폭·높이 변경분
+let travelJustResized = false;  // 리사이즈 직후 th 클릭(열 선택) 오발동 방지
 let travelSel = null;   // {type:'cell',r,c} | {type:'col',c}
 let travelDirty = false;
 let travelLoadOk = false;  // 마지막 읽기 성공 여부 — 실패 상태에선 저장 차단 (빈 그리드 덮어쓰기 방지)
@@ -2645,12 +2648,18 @@ async function loadTravel() {
         if (link) link.href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit#gid=${travelTripGid()}`;
         // ② 값+서식 읽기 — valueRenderOption=FORMULA: 수식을 결과값으로 뭉개지 않고 원문 보존 (날짜는 문자열로)
         const vUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(travelRange())}?valueRenderOption=FORMULA&dateTimeRenderOption=FORMATTED_STRING&key=${GOOGLE_API_KEY}`;
-        const fUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?ranges=${encodeURIComponent(travelRange())}&fields=${encodeURIComponent('sheets.data.rowData.values.userEnteredFormat')}&key=${GOOGLE_API_KEY}`;
+        const fUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?ranges=${encodeURIComponent(travelRange())}&fields=${encodeURIComponent('sheets.data(rowData.values.userEnteredFormat,columnMetadata.pixelSize,rowMetadata.pixelSize)')}&key=${GOOGLE_API_KEY}`;
         const [vRes, fRes] = await Promise.all([fetch(vUrl), fetch(fUrl)]);
         if (vRes.ok) { values = (await vRes.json()).values || []; travelLoadOk = true; }
+        travelColWidths = []; travelRowHeights = [];
+        travelDimDirty = { cols: {}, rows: {} };
         if (fRes.ok) {
             const fj = await fRes.json();
-            const rowData = fj.sheets?.[0]?.data?.[0]?.rowData || [];
+            const data0 = fj.sheets?.[0]?.data?.[0] || {};
+            const rowData = data0.rowData || [];
+            // 열 폭·행 높이(시트에서 조정한 값) — 행 높이는 기본값(≤24px)이면 auto 취급
+            travelColWidths = (data0.columnMetadata || []).map(m => m.pixelSize || 100);
+            travelRowHeights = (data0.rowMetadata || []).map(m => (m.pixelSize && m.pixelSize > 24) ? m.pixelSize : null);
             aligns = rowData.map(r => (r.values || []).map(v => {
                 const a = v?.userEnteredFormat?.horizontalAlignment;
                 return a === 'CENTER' ? 'center' : a === 'RIGHT' ? 'right' : a === 'LEFT' ? 'left' : '';
@@ -2704,9 +2713,27 @@ function renderTravelGrid(data, forceRows, forceCols, aligns, fmts) {
     }
     travelAligns = newAligns;
     travelFmts = newFmts;
+    const newW = [], newH = [];
+    for (let c = 0; c < nCols; c++) newW.push(travelColWidths[c] || 100);
+    for (let r = 0; r < nRows; r++) newH.push(travelRowHeights[r] || null);
+    travelColWidths = newW;
+    travelRowHeights = newH;
 
     const table = document.createElement('table');
     table.className = 'tgrid';
+    table.style.tableLayout = 'fixed';
+    const cg = document.createElement('colgroup');
+    const cornerCol = document.createElement('col');
+    cornerCol.style.width = '38px';
+    cg.appendChild(cornerCol);
+    travelColEls = [];
+    for (let c = 0; c < nCols; c++) {
+        const col = document.createElement('col');
+        col.style.width = travelColWidths[c] + 'px';
+        cg.appendChild(col);
+        travelColEls.push(col);
+    }
+    table.appendChild(cg);
     const thead = document.createElement('thead');
     const hr = document.createElement('tr');
     const corner = document.createElement('th');
@@ -2717,8 +2744,12 @@ function renderTravelGrid(data, forceRows, forceCols, aligns, fmts) {
         const th = document.createElement('th');
         th.textContent = String.fromCharCode(65 + c);
         th.style.cursor = 'pointer';
-        th.title = '클릭하면 열 전체 선택 (정렬 버튼이 열 전체에 적용)';
-        th.addEventListener('click', () => selectTravelCol(c));
+        th.title = '클릭=열 전체 선택 · 오른쪽 경계 드래그=폭 조절';
+        th.addEventListener('click', () => {
+            if (travelJustResized) { travelJustResized = false; return; }
+            selectTravelCol(c);
+        });
+        travelAddColResizer(th, c);
         hr.appendChild(th);
         travelColThs.push(th);
     }
@@ -2728,9 +2759,12 @@ function renderTravelGrid(data, forceRows, forceCols, aligns, fmts) {
     travelCells = [];
     for (let r = 0; r < nRows; r++) {
         const tr = document.createElement('tr');
+        if (travelRowHeights[r]) tr.style.height = travelRowHeights[r] + 'px';
         const rn = document.createElement('td');
         rn.className = 'rownum';
         rn.textContent = r + 1;
+        rn.title = '아래 경계 드래그=높이 조절';
+        travelAddRowResizer(rn, r, tr);
         tr.appendChild(rn);
         const rowCells = [];
         for (let c = 0; c < nCols; c++) {
@@ -2765,6 +2799,53 @@ function renderTravelGrid(data, forceRows, forceCols, aligns, fmts) {
     table.appendChild(tbody);
     wrap.innerHTML = '';
     wrap.appendChild(table);
+}
+
+function travelAddColResizer(th, c) {
+    const h = document.createElement('div');
+    h.style.cssText = 'position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:4;';
+    h.addEventListener('mousedown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const startX = e.clientX, startW = travelColWidths[c];
+        const move = (ev) => {
+            const w = Math.max(40, startW + ev.clientX - startX);
+            travelColWidths[c] = w;
+            if (travelColEls[c]) travelColEls[c].style.width = w + 'px';
+        };
+        const up = () => {
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', up);
+            travelJustResized = true;
+            travelDimDirty.cols[c] = Math.round(travelColWidths[c]);
+            setTravelDirty(true);
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    });
+    th.appendChild(h);
+}
+
+function travelAddRowResizer(rn, r, tr) {
+    const h = document.createElement('div');
+    h.style.cssText = 'position:absolute;left:0;bottom:-3px;height:7px;width:100%;cursor:row-resize;z-index:4;';
+    h.addEventListener('mousedown', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const startY = e.clientY, startH = tr.offsetHeight;
+        const move = (ev) => {
+            const hh = Math.max(24, startH + ev.clientY - startY);
+            travelRowHeights[r] = hh;
+            tr.style.height = hh + 'px';
+        };
+        const up = () => {
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', up);
+            travelDimDirty.rows[r] = Math.round(travelRowHeights[r]);
+            setTravelDirty(true);
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+    });
+    rn.appendChild(h);
 }
 
 function selectTravelCol(c) {
@@ -2891,6 +2972,7 @@ async function saveTravel() {
             res = await travelWrite(token, grid);
         }
         if (!res.ok) throw new Error(await res.text());
+        travelDimDirty = { cols: {}, rows: {} };
         const now = new Date();
         const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
         if (travelEditSeq === seqAtSave) {
@@ -2927,16 +3009,27 @@ async function travelWrite(token, grid) {
     });
     if (!putRes.ok) return putRes;
     // 정렬 서식 반영 — 범위 전체를 덮어써 이전 정렬 잔재도 초기화 (fields가 정렬만이라 하이라이트 등은 안 건드림)
+    const gid = travelTripGid();
+    const reqs = [{ updateCells: {
+        range: { sheetId: gid, startRowIndex: 0, endRowIndex: 200, startColumnIndex: 0, endColumnIndex: 26 },
+        fields: 'userEnteredFormat.horizontalAlignment',
+        rows: travelAligns.map(rowA => ({
+            values: rowA.map(a => a ? { userEnteredFormat: { horizontalAlignment: a.toUpperCase() } } : {})
+        }))
+    } }];
+    // 드래그로 바꾼 열 폭·행 높이를 시트 dimension으로 저장
+    Object.keys(travelDimDirty.cols).forEach(c => reqs.push({ updateDimensionProperties: {
+        range: { sheetId: gid, dimension: 'COLUMNS', startIndex: +c, endIndex: +c + 1 },
+        properties: { pixelSize: travelDimDirty.cols[c] }, fields: 'pixelSize'
+    } }));
+    Object.keys(travelDimDirty.rows).forEach(r => reqs.push({ updateDimensionProperties: {
+        range: { sheetId: gid, dimension: 'ROWS', startIndex: +r, endIndex: +r + 1 },
+        properties: { pixelSize: travelDimDirty.rows[r] }, fields: 'pixelSize'
+    } }));
     return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
         method: 'POST',
         headers: hdr,
-        body: JSON.stringify({ requests: [{ updateCells: {
-            range: { sheetId: travelTripGid(), startRowIndex: 0, endRowIndex: 200, startColumnIndex: 0, endColumnIndex: 26 },
-            fields: 'userEnteredFormat.horizontalAlignment',
-            rows: travelAligns.map(rowA => ({
-                values: rowA.map(a => a ? { userEnteredFormat: { horizontalAlignment: a.toUpperCase() } } : {})
-            }))
-        } }] })
+        body: JSON.stringify({ requests: reqs })
     });
 }
 
