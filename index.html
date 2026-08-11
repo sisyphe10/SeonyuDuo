@@ -749,8 +749,12 @@
             cursor: pointer;
         }
         .tv-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .tv-save { background: #0F9D58; border-color: #0F9D58; color: #fff; }
+        .tv-save:hover { border-color: #0F9D58; color: #fff; opacity: 0.85; }
         .tv-save.dirty { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .tv-save.dirty:hover { color: #fff; opacity: 0.85; }
+        .tv-save.dirty:hover { border-color: var(--accent); color: #fff; opacity: 0.85; }
+        .tv-align.active { border-color: var(--accent); color: var(--accent); background: var(--peach); }
+        .tgrid th.selcol { background: #dde3e8; color: #444; }
         .tgrid-wrap { overflow: auto; max-height: 72vh; border: 1px solid #d0d7de; border-radius: 10px; }
         table.tgrid { border-collapse: separate; border-spacing: 0; }
         .tgrid th {
@@ -923,6 +927,10 @@
                 <span>✈️ 여행</span>
                 <span id="travel-status" style="font-size:0.75rem;font-weight:500;color:var(--text-light);"></span>
                 <span style="flex:1"></span>
+                <button class="tv-btn tv-align" id="tv-align-left" onmousedown="event.preventDefault()" onclick="setTravelAlign('left')" title="왼쪽 정렬">왼쪽</button>
+                <button class="tv-btn tv-align" id="tv-align-center" onmousedown="event.preventDefault()" onclick="setTravelAlign('center')" title="가운데 정렬">가운데</button>
+                <button class="tv-btn tv-align" id="tv-align-right" onmousedown="event.preventDefault()" onclick="setTravelAlign('right')" title="오른쪽 정렬">오른쪽</button>
+                <span style="width:1px;height:18px;background:var(--border);"></span>
                 <button class="tv-btn" onclick="addTravelRow()">+ 행</button>
                 <button class="tv-btn" onclick="addTravelCol()">+ 열</button>
                 <button id="travel-save-btn" class="tv-btn tv-save" onclick="saveTravel()">저장</button>
@@ -2554,8 +2562,12 @@ async function addLedgerEntry() {
 // ── 여행 (Travel) 엑셀형 편집 그리드 ──
 // 읽기: Sheets API values.get (API 키) / 쓰기: 가계부와 동일한 사용자 OAuth
 const TRAVEL_RANGE = '여행!A1:Z200';
+const TRAVEL_GID = 678386161;   // '여행' 시트 gid (정렬 서식 batchUpdate용)
 const TRAVEL_MIN_ROWS = 15, TRAVEL_MIN_COLS = 8, TRAVEL_MAX_COLS = 26;
 let travelCells = [];   // 렌더된 셀 div 2차원 배열
+let travelColThs = [];  // 열 머리글 th 배열
+let travelAligns = [];  // 셀별 정렬 'left'|'center'|'right'|'' (시트 서식과 왕복)
+let travelSel = null;   // {type:'cell',r,c} | {type:'col',c}
 let travelDirty = false;
 
 function setTravelDirty(d) {
@@ -2567,24 +2579,43 @@ function setTravelDirty(d) {
 }
 
 async function loadTravel() {
-    let values = [];
+    let values = [], aligns = [];
     try {
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(TRAVEL_RANGE)}?key=${GOOGLE_API_KEY}`;
-        const res = await fetch(url);
-        if (res.ok) values = (await res.json()).values || [];
+        const vUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(TRAVEL_RANGE)}?key=${GOOGLE_API_KEY}`;
+        const fUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?ranges=${encodeURIComponent(TRAVEL_RANGE)}&fields=${encodeURIComponent('sheets.data.rowData.values.userEnteredFormat.horizontalAlignment')}&key=${GOOGLE_API_KEY}`;
+        const [vRes, fRes] = await Promise.all([fetch(vUrl), fetch(fUrl)]);
+        if (vRes.ok) values = (await vRes.json()).values || [];
+        if (fRes.ok) {
+            const fj = await fRes.json();
+            const rowData = fj.sheets?.[0]?.data?.[0]?.rowData || [];
+            aligns = rowData.map(r => (r.values || []).map(v => {
+                const a = v?.userEnteredFormat?.horizontalAlignment;
+                return a === 'CENTER' ? 'center' : a === 'RIGHT' ? 'right' : a === 'LEFT' ? 'left' : '';
+            }));
+        }
     } catch (e) {}
-    renderTravelGrid(values.map(r => r.map(v => String(v ?? ''))));
+    travelSel = null;
+    renderTravelGrid(values.map(r => r.map(v => String(v ?? ''))), null, null, aligns);
     setTravelDirty(false);
+    updateAlignButtons();
     const st = document.getElementById('travel-status');
     if (st) { st.textContent = ''; }
 }
 
-function renderTravelGrid(data, forceRows, forceCols) {
+function renderTravelGrid(data, forceRows, forceCols, aligns) {
     const wrap = document.getElementById('travel-grid');
     let maxLen = 0;
     data.forEach(r => { if (r.length > maxLen) maxLen = r.length; });
     const nRows = forceRows || Math.max(data.length + 3, TRAVEL_MIN_ROWS);
     const nCols = forceCols || Math.min(Math.max(maxLen + 1, TRAVEL_MIN_COLS), TRAVEL_MAX_COLS);
+    const srcAligns = aligns || travelAligns;
+    const newAligns = [];
+    for (let r = 0; r < nRows; r++) {
+        const row = [];
+        for (let c = 0; c < nCols; c++) row.push((srcAligns[r] && srcAligns[r][c]) || '');
+        newAligns.push(row);
+    }
+    travelAligns = newAligns;
 
     const table = document.createElement('table');
     table.className = 'tgrid';
@@ -2593,10 +2624,15 @@ function renderTravelGrid(data, forceRows, forceCols) {
     const corner = document.createElement('th');
     corner.className = 'rownum-h';
     hr.appendChild(corner);
+    travelColThs = [];
     for (let c = 0; c < nCols; c++) {
         const th = document.createElement('th');
         th.textContent = String.fromCharCode(65 + c);
+        th.style.cursor = 'pointer';
+        th.title = '클릭하면 열 전체 선택 (정렬 버튼이 열 전체에 적용)';
+        th.addEventListener('click', () => selectTravelCol(c));
         hr.appendChild(th);
+        travelColThs.push(th);
     }
     thead.appendChild(hr);
 
@@ -2615,9 +2651,15 @@ function renderTravelGrid(data, forceRows, forceCols) {
             const div = document.createElement('div');
             div.contentEditable = 'true';
             div.textContent = (data[r] && data[r][c]) || '';
+            if (travelAligns[r][c]) div.style.textAlign = travelAligns[r][c];
             div.addEventListener('input', () => setTravelDirty(true));
             div.addEventListener('keydown', (e) => travelKeydown(e, r, c));
             div.addEventListener('paste', (e) => travelPaste(e, r, c));
+            div.addEventListener('focus', () => {
+                travelSel = { type: 'cell', r, c };
+                travelColThs.forEach(t => t.classList.remove('selcol'));
+                updateAlignButtons();
+            });
             td.appendChild(div);
             tr.appendChild(td);
             rowCells.push(div);
@@ -2629,6 +2671,46 @@ function renderTravelGrid(data, forceRows, forceCols) {
     table.appendChild(tbody);
     wrap.innerHTML = '';
     wrap.appendChild(table);
+}
+
+function selectTravelCol(c) {
+    travelSel = { type: 'col', c };
+    travelColThs.forEach((th, i) => th.classList.toggle('selcol', i === c));
+    updateAlignButtons();
+}
+
+function updateAlignButtons() {
+    let cur = '';
+    if (travelSel && travelSel.type === 'cell' && travelAligns[travelSel.r]) {
+        cur = travelAligns[travelSel.r][travelSel.c] || '';
+    } else if (travelSel && travelSel.type === 'col') {
+        const vals = travelAligns.map(row => row[travelSel.c] || '');
+        cur = (vals.length && vals.every(v => v === vals[0])) ? vals[0] : '';
+    }
+    ['left', 'center', 'right'].forEach(m => {
+        const b = document.getElementById('tv-align-' + m);
+        if (b) b.classList.toggle('active', cur === m);
+    });
+}
+
+function setTravelAlign(mode) {
+    if (!travelSel) { alert('정렬할 셀을 먼저 클릭하세요. (열 머리글 A·B·C…를 클릭하면 열 전체)'); return; }
+    if (travelSel.type === 'col') {
+        const c = travelSel.c;
+        if (!travelCells[0] || c >= travelCells[0].length) return;
+        for (let r = 0; r < travelCells.length; r++) {
+            travelAligns[r][c] = mode;
+            travelCells[r][c].style.textAlign = mode;
+        }
+    } else {
+        const { r, c } = travelSel;
+        if (!travelCells[r] || !travelCells[r][c]) return;
+        travelAligns[r][c] = mode;
+        travelCells[r][c].style.textAlign = mode;
+        travelCells[r][c].focus();
+    }
+    setTravelDirty(true);
+    updateAlignButtons();
 }
 
 function collectTravelGrid(trim) {
@@ -2723,11 +2805,26 @@ async function travelWrite(token, grid) {
     const hdr = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
     // 지운 행·열도 반영되도록 범위 전체 clear 후 덮어쓰기
     const clearRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(TRAVEL_RANGE)}:clear`, { method: 'POST', headers: hdr });
-    if (!clearRes.ok || !grid.length) return clearRes;
-    return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('여행!A1')}?valueInputOption=USER_ENTERED`, {
-        method: 'PUT',
+    if (!clearRes.ok) return clearRes;
+    if (grid.length) {
+        const putRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('여행!A1')}?valueInputOption=USER_ENTERED`, {
+            method: 'PUT',
+            headers: hdr,
+            body: JSON.stringify({ values: grid })
+        });
+        if (!putRes.ok) return putRes;
+    }
+    // 정렬 서식 반영 — 범위 전체를 덮어써 이전 정렬 잔재도 초기화
+    return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
+        method: 'POST',
         headers: hdr,
-        body: JSON.stringify({ values: grid })
+        body: JSON.stringify({ requests: [{ updateCells: {
+            range: { sheetId: TRAVEL_GID, startRowIndex: 0, endRowIndex: 200, startColumnIndex: 0, endColumnIndex: 26 },
+            fields: 'userEnteredFormat.horizontalAlignment',
+            rows: travelAligns.map(rowA => ({
+                values: rowA.map(a => a ? { userEnteredFormat: { horizontalAlignment: a.toUpperCase() } } : {})
+            }))
+        } }] })
     });
 }
 
