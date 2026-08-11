@@ -2695,10 +2695,9 @@ function renderTravelGrid(data, forceRows, forceCols, aligns, fmts) {
     data.forEach(r => { if (r.length > maxLen) maxLen = r.length; });
     const srcAligns = aligns || travelAligns;
     const srcFmts = fmts || travelFmts;
-    const alignRows = Math.max(srcAligns.length, srcFmts.length);
-    // 행: 서식만 있는 행도 포함(저장 시 정렬 덮어쓰기 보호) · 상한 200 / 열: 실제 데이터 기준만 —
-    // 행 전체 하이라이트처럼 서식만 Z열까지 걸린 경우에 빈 열(I~)이 표시되는 것 방지
-    const nRows = Math.min(forceRows || Math.max(data.length + 3, alignRows, TRAVEL_MIN_ROWS), 200);
+    // 행·열 모두 실제 데이터 범위까지만 표시(빈 시트만 기본 15행) — 확장은 +행/+열 버튼, 마지막 행 Enter도 행 추가.
+    // 서식만 있는 행·열(예: 행 전체 하이라이트)로는 확장하지 않음
+    const nRows = Math.min(forceRows || (data.length ? data.length : TRAVEL_MIN_ROWS), 200);
     const nCols = Math.min(forceCols || Math.max(maxLen, TRAVEL_MIN_COLS), TRAVEL_MAX_COLS);  // 여분 열 없음 — 확장은 +열 버튼으로
     const newAligns = [], newFmts = [];
     for (let r = 0; r < nRows; r++) {
