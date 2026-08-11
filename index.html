@@ -749,6 +749,7 @@
             cursor: pointer;
         }
         .tv-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .tv-btn:disabled { opacity: 0.5; cursor: default; }
         .tv-save { background: #0F9D58; border-color: #0F9D58; color: #fff; }
         .tv-save:hover { border-color: #0F9D58; color: #fff; opacity: 0.85; }
         .tv-save.dirty { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -1037,6 +1038,8 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     event.target.classList.add('active');
+    // 여행 탭 진입 시 최신 시트 반영 (편집·저장 중이면 건드리지 않음)
+    if (tab === 'travel' && !travelDirty && !travelSaving) loadTravel();
 }
 
 // ── Assets sub-section switching (sidebar) ──
@@ -2569,9 +2572,13 @@ let travelColThs = [];  // 열 머리글 th 배열
 let travelAligns = [];  // 셀별 정렬 'left'|'center'|'right'|'' (시트 서식과 왕복)
 let travelSel = null;   // {type:'cell',r,c} | {type:'col',c}
 let travelDirty = false;
+let travelLoadOk = false;  // 마지막 읽기 성공 여부 — 실패 상태에선 저장 차단 (빈 그리드 덮어쓰기 방지)
+let travelSaving = false;
+let travelEditSeq = 0;     // 저장 중 새 편집 감지용
 
 function setTravelDirty(d) {
     travelDirty = d;
+    if (d) travelEditSeq++;
     const btn = document.getElementById('travel-save-btn');
     if (btn) btn.classList.toggle('dirty', d);
     const st = document.getElementById('travel-status');
@@ -2580,11 +2587,13 @@ function setTravelDirty(d) {
 
 async function loadTravel() {
     let values = [], aligns = [];
+    travelLoadOk = false;
     try {
-        const vUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(TRAVEL_RANGE)}?key=${GOOGLE_API_KEY}`;
+        // valueRenderOption=FORMULA: 수식을 결과값으로 뭉개지 않고 원문 보존 (날짜는 문자열로)
+        const vUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(TRAVEL_RANGE)}?valueRenderOption=FORMULA&dateTimeRenderOption=FORMATTED_STRING&key=${GOOGLE_API_KEY}`;
         const fUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?ranges=${encodeURIComponent(TRAVEL_RANGE)}&fields=${encodeURIComponent('sheets.data.rowData.values.userEnteredFormat.horizontalAlignment')}&key=${GOOGLE_API_KEY}`;
         const [vRes, fRes] = await Promise.all([fetch(vUrl), fetch(fUrl)]);
-        if (vRes.ok) values = (await vRes.json()).values || [];
+        if (vRes.ok) { values = (await vRes.json()).values || []; travelLoadOk = true; }
         if (fRes.ok) {
             const fj = await fRes.json();
             const rowData = fj.sheets?.[0]?.data?.[0]?.rowData || [];
@@ -2594,6 +2603,12 @@ async function loadTravel() {
             }));
         }
     } catch (e) {}
+    if (!travelLoadOk) {
+        // 읽기 실패를 빈 그리드로 위장하면 저장 시 시트 전체가 지워진다 — 저장 차단 상태로 표시
+        const wrap = document.getElementById('travel-grid');
+        wrap.innerHTML = '<div style="padding:36px;text-align:center;color:var(--text-light);">시트를 불러오지 못했습니다. 데이터 보호를 위해 저장이 차단됩니다.<br><button class="tv-btn" style="margin-top:12px;" onclick="loadTravel()">다시 불러오기</button></div>';
+        return;
+    }
     travelSel = null;
     renderTravelGrid(values.map(r => r.map(v => String(v ?? ''))), null, null, aligns);
     setTravelDirty(false);
@@ -2606,9 +2621,12 @@ function renderTravelGrid(data, forceRows, forceCols, aligns) {
     const wrap = document.getElementById('travel-grid');
     let maxLen = 0;
     data.forEach(r => { if (r.length > maxLen) maxLen = r.length; });
-    const nRows = forceRows || Math.max(data.length + 3, TRAVEL_MIN_ROWS);
-    const nCols = forceCols || Math.min(Math.max(maxLen + 1, TRAVEL_MIN_COLS), TRAVEL_MAX_COLS);
     const srcAligns = aligns || travelAligns;
+    let alignRows = srcAligns.length, alignCols = 0;
+    srcAligns.forEach(r => { if (r.length > alignCols) alignCols = r.length; });
+    // 정렬만 있는 행·열도 그리드에 포함(저장 시 서식 전체 덮어쓰기라 빠지면 정렬이 지워짐) · 행 상한 200(TRAVEL_RANGE 밖 유실 방지)
+    const nRows = Math.min(forceRows || Math.max(data.length + 3, alignRows, TRAVEL_MIN_ROWS), 200);
+    const nCols = Math.min(forceCols || Math.max(maxLen + 1, alignCols, TRAVEL_MIN_COLS), TRAVEL_MAX_COLS);
     const newAligns = [];
     for (let r = 0; r < nRows; r++) {
         const row = [];
@@ -2728,6 +2746,7 @@ function collectTravelGrid(trim) {
 }
 
 function travelKeydown(e, r, c) {
+    if (e.isComposing || e.keyCode === 229) return;  // 한글 IME 조합 확정 Enter는 이동 아님
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         if (r + 1 >= travelCells.length) addTravelRow();
@@ -2763,6 +2782,7 @@ function travelPaste(e, r, c) {
 }
 
 function addTravelRow() {
+    if (travelCells.length >= 200) { alert('최대 200행까지 지원합니다. (그 이상은 시트에서 직접)'); return; }
     const grid = collectTravelGrid(false);
     renderTravelGrid(grid, travelCells.length + 1, travelCells[0] ? travelCells[0].length : TRAVEL_MIN_COLS);
     setTravelDirty(travelDirty);
@@ -2777,8 +2797,14 @@ function addTravelCol() {
 }
 
 async function saveTravel() {
+    if (travelSaving) return;
+    if (!travelLoadOk) { alert('시트 읽기가 실패한 상태라 저장할 수 없습니다. "다시 불러오기" 후 시도하세요.'); return; }
     const grid = collectTravelGrid(true);
     const st = document.getElementById('travel-status');
+    const btn = document.getElementById('travel-save-btn');
+    const seqAtSave = travelEditSeq;
+    travelSaving = true;
+    if (btn) btn.disabled = true;
     try {
         if (st) { st.textContent = '저장 중…'; st.style.color = 'var(--text-light)'; }
         let token = await getAccessToken();
@@ -2789,31 +2815,41 @@ async function saveTravel() {
             res = await travelWrite(token, grid);
         }
         if (!res.ok) throw new Error(await res.text());
-        setTravelDirty(false);
         const now = new Date();
-        if (st) {
-            st.textContent = '저장됨 ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-            st.style.color = 'var(--text-light)';
+        const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+        if (travelEditSeq === seqAtSave) {
+            setTravelDirty(false);
+            if (st) { st.textContent = '저장됨 ' + hhmm; st.style.color = 'var(--text-light)'; }
+        } else {
+            // 저장 중 새 편집이 있었음 — dirty 유지, 저장된 것처럼 위장하지 않음
+            if (st) { st.textContent = '저장됨 ' + hhmm + ' · 이후 수정 있음'; st.style.color = 'var(--accent)'; }
         }
     } catch (e) {
         if (st) st.textContent = '';
         alert('저장 실패: ' + e.message);
+    } finally {
+        travelSaving = false;
+        if (btn) btn.disabled = false;
     }
 }
 
 async function travelWrite(token, grid) {
     const hdr = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
-    // 지운 행·열도 반영되도록 범위 전체 clear 후 덮어쓰기
-    const clearRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(TRAVEL_RANGE)}:clear`, { method: 'POST', headers: hdr });
-    if (!clearRes.ok) return clearRes;
-    if (grid.length) {
-        const putRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('여행!A1')}?valueInputOption=USER_ENTERED`, {
-            method: 'PUT',
-            headers: hdr,
-            body: JSON.stringify({ values: grid })
-        });
-        if (!putRes.ok) return putRes;
+    // clear 선행 없이 200×26 전체를 ''로 패딩한 단일 PUT — 삭제 반영 + 실패해도 기존 데이터 보존
+    const full = [];
+    for (let r = 0; r < 200; r++) {
+        const row = [];
+        for (let c = 0; c < 26; c++) {
+            row.push(grid[r] && grid[r][c] !== undefined ? grid[r][c] : '');
+        }
+        full.push(row);
     }
+    const putRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(TRAVEL_RANGE)}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT',
+        headers: hdr,
+        body: JSON.stringify({ values: full })
+    });
+    if (!putRes.ok) return putRes;
     // 정렬 서식 반영 — 범위 전체를 덮어써 이전 정렬 잔재도 초기화
     return fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
         method: 'POST',
