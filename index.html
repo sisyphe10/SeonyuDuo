@@ -617,22 +617,6 @@
         .month-evt.upcoming {
             font-weight: 700;
         }
-        .month-evt .tooltip {
-            display: none;
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #333;
-            color: #fff;
-            font-size: 0.7rem;
-            padding: 4px 10px;
-            border-radius: 6px;
-            white-space: nowrap;
-            z-index: 10;
-            margin-bottom: 4px;
-        }
-        .month-evt:hover .tooltip { display: block; }
         .month-card-empty {
             font-size: 0.75rem;
             color: var(--text-light);
@@ -2150,7 +2134,7 @@ async function loadYearCalendar() {
             } else {
                 monthEvents[m].forEach(ev => {
                     const upcoming = isCurrent && ev.day >= curDay;
-                    html += `<div class="month-evt${upcoming ? ' upcoming' : ''}">• ${ev.content}<span class="tooltip">${ev.month}/${ev.day} (${ev.dow})</span></div>`;
+                    html += `<div class="month-evt${upcoming ? ' upcoming' : ''}">• ${ev.day}일(${ev.dow}) ${ev.content}</div>`;
                 });
             }
 
