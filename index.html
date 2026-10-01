@@ -1008,10 +1008,10 @@ window.fetch = async function(input, opts) {
     }
     const res = await _origFetch(input, opts);
     if (res.ok) {
-        try { localStorage.setItem(key, await res.clone().text()); }
-        catch (e) {
-            try { Object.keys(localStorage).filter(k => k.startsWith('sdc1:')).forEach(k => localStorage.removeItem(k)); } catch (e2) {}
-        }
+        try {
+            const t = await res.clone().text();
+            if (t.length <= 700000) localStorage.setItem(key, t);
+        } catch (e) {}
     }
     return res;
 };
