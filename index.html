@@ -6,11 +6,11 @@
     <meta name="robots" content="noindex, nofollow">
     <title>선유듀오</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2" defer></script>
     <script>document.addEventListener('DOMContentLoaded',function(){if(window.Chart){Chart.defaults.font.family="'Pretendard Variable', Pretendard, system-ui, -apple-system, sans-serif";Chart.defaults.devicePixelRatio=2*(window.devicePixelRatio||1);Chart.defaults.elements.line.borderJoinStyle='round';Chart.defaults.elements.line.borderCapStyle='round';}});</script>
-    <script src="https://cdn.jsdelivr.net/npm/korean-lunar-calendar@0.3.6/dist/korean-lunar-calendar.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/korean-lunar-calendar@0.3.6/dist/korean-lunar-calendar.min.js" defer></script>
     <style>
         :root {
             --bg: #F0EDEA;
@@ -994,6 +994,28 @@
 </div>
 
 <script>
+// ── 응답 캐시: 직전 데이터를 먼저 그린 뒤 최신 데이터로 갱신 ──
+let _sdPhase = 'net';
+const _origFetch = window.fetch.bind(window);
+window.fetch = async function(input, opts) {
+    const url = typeof input === 'string' ? input : input.url;
+    const cacheable = (!opts || !opts.method || opts.method === 'GET') &&
+        /docs\.google\.com\/spreadsheets|sheets\.googleapis\.com|googleapis\.com\/calendar/.test(url);
+    if (!cacheable) return _origFetch(input, opts);
+    const key = 'sdc1:' + url;
+    if (_sdPhase === 'cache') {
+        try { const t = localStorage.getItem(key); if (t !== null) return new Response(t, { status: 200 }); } catch (e) {}
+    }
+    const res = await _origFetch(input, opts);
+    if (res.ok) {
+        try { localStorage.setItem(key, await res.clone().text()); }
+        catch (e) {
+            try { Object.keys(localStorage).filter(k => k.startsWith('sdc1:')).forEach(k => localStorage.removeItem(k)); } catch (e2) {}
+        }
+    }
+    return res;
+};
+
 // ── Password ──
 const PW_HASH = '7d78e91672fb21bfd70f2c3a5df40ee3d3cf052ae66a133df53822cc8bad44ee';
 
@@ -1112,9 +1134,18 @@ async function loadAllData() {
         showConfigBanner();
         return;
     }
-    let alignments = {};
-    try { alignments = await fetchAlignments(); } catch(e) {}
-    await Promise.all([loadAssets(alignments.assets || []), loadMeeting(alignments.meeting || []), loadGoals(), loadCalendar(), loadExercise(), loadLedger(), loadTravel()]);
+    let warm = false;
+    try { warm = localStorage.getItem('sdc1:' + sheetUrl(SHEET_NAMES.assets)) !== null; } catch (e) {}
+    if (warm) await runLoad('cache');
+    await runLoad('net');
+}
+
+async function runLoad(phase) {
+    _sdPhase = phase;
+    const aligned = fetchAlignments().catch(() => ({}))
+        .then(a => Promise.all([loadAssets(a.assets || []), loadMeeting(a.meeting || [])]));
+    await Promise.all([aligned, loadGoals(), loadCalendar(), loadExercise(), loadLedger(),
+        (phase === 'net' && travelDirty) ? null : loadTravel()]);
 }
 
 function showConfigBanner() {
