@@ -611,6 +611,11 @@
             cursor: default;
             position: relative;
         }
+        .month-evt .evt-sep {
+            color: var(--text-light);
+            margin: 0 6px;
+            font-weight: 400;
+        }
         .month-evt:hover {
             background: #f0f0f0;
         }
@@ -2134,7 +2139,7 @@ async function loadYearCalendar() {
             } else {
                 monthEvents[m].forEach(ev => {
                     const upcoming = isCurrent && ev.day >= curDay;
-                    html += `<div class="month-evt${upcoming ? ' upcoming' : ''}">• ${ev.day}일(${ev.dow}) ${ev.content}</div>`;
+                    html += `<div class="month-evt${upcoming ? ' upcoming' : ''}">• ${ev.day}일(${ev.dow})<span class="evt-sep">|</span>${ev.content}</div>`;
                 });
             }
 
